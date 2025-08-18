@@ -1,6 +1,7 @@
 // controllers/applicationController.js
 import pool from "../config/db.js"
 
+
 const applicationController = {
   // Apply for a job
   async apply(req, res) {

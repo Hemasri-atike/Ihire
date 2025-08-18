@@ -12,13 +12,14 @@ const pool = mysql.createPool({
 });
 
 // Test connection immediately
-pool.getConnection((err, connection) => {
-  if (err) {
-    console.error(" Database connection failed:", err.message);
-  } else {
-    console.log(" Connected to MySQL Database");
+(async () => {
+  try {
+    const connection = await pool.getConnection();
+    console.log("Connected to MySQL Database");
     connection.release();
+  } catch (err) {
+    console.error("Database connection failed:", err.message);
   }
-});
+})();
 
 export default pool;

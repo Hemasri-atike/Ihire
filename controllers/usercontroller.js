@@ -1,4 +1,3 @@
-// controllers/userController.js
 import pool from "../config/db.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
@@ -56,7 +55,18 @@ const userController = {
         { expiresIn: "1h" }
       );
 
-      res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role, mobile: user.mobile, company_name: user.company_name, position: user.position } });
+      res.json({
+        token,
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          mobile: user.mobile,
+          company_name: user.company_name,
+          position: user.position,
+        },
+      });
     } catch (err) {
       console.error("Error in login:", err.message, err.stack);
       res.status(500).json({ error: "Server error", details: err.message });
@@ -65,7 +75,19 @@ const userController = {
 
   async getUsers(req, res) {
     try {
-      const [users] = await pool.query("SELECT id, name, email, role, mobile, company_name, position FROM users");
+      const token = req.headers.authorization?.split(" ")[1];
+      if (!token) {
+        return res.status(401).json({ error: "No token provided" });
+      }
+
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || "your_jwt_secret");
+      if (decoded.role !== "admin") {
+        return res.status(403).json({ error: "Access denied. Admins only." });
+      }
+
+      const [users] = await pool.query(
+        "SELECT id, name, email, role, mobile, company_name, position, created_at FROM users"
+      );
       res.json(users);
     } catch (err) {
       console.error("Error in getUsers:", err.message, err.stack);
