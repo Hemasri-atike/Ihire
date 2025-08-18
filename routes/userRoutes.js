@@ -4,12 +4,13 @@ import authenticate from "../middleware/auth.js";
 
 const router = express.Router();
 
+// Register a new user
 router.post("/register", userController.register);
+
+// Login user
 router.post("/login", userController.login);
-router.get('/login', userController.login)
-router.get("/register", (req, res) => {
-  res.status(405).json({ error: "Method Not Allowed", message: "Use POST to register a user" });
-});
-router.get("/users", authenticate, userController.getUsers);
+
+// Get all users (Admin only)
+router.get("/", authenticate, userController.getUsers);
 
 export default router;

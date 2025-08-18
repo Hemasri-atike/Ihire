@@ -3,37 +3,52 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 
 const userController = {
+
   async register(req, res) {
     try {
       const { name, email, password, role, mobile, company_name, position } = req.body;
       if (!name || !email || !password) {
         return res.status(400).json({ error: "Name, email, and password are required" });
       }
+  
+      // role-based validations
       if (role === "employer" && (!company_name || !position)) {
         return res.status(400).json({ error: "Company name and position are required for employers" });
       }
       if (role === "job_seeker" && !mobile) {
         return res.status(400).json({ error: "Mobile number is required for job seekers" });
       }
-
+      if (role === "admin") {
+        // no extra fields needed
+      }
+  
       const [existingUsers] = await pool.query("SELECT * FROM users WHERE email = ?", [email]);
       if (existingUsers.length > 0) {
         return res.status(400).json({ error: "Email already exists" });
       }
-
+  
       const hashedPassword = await bcrypt.hash(password, 10);
+  
       await pool.query(
         "INSERT INTO users (name, email, password, role, mobile, company_name, position) VALUES (?, ?, ?, ?, ?, ?, ?)",
-        [name, email, hashedPassword, role || "job_seeker", mobile || null, company_name || null, position || null]
+        [
+          name,
+          email,
+          hashedPassword,
+          role || "job_seeker",         // default role = job_seeker
+          mobile || null,               // only for job_seeker
+          company_name || null,         // only for employer
+          position || null              // only for employer
+        ]
       );
-
+  
       res.status(201).json({ message: "User registered successfully" });
     } catch (err) {
       console.error("Error in register:", err.message, err.stack);
       res.status(500).json({ error: "Server error", details: err.message });
     }
   },
-
+  
   async login(req, res) {
     try {
       const { email, password } = req.body;
