@@ -25,7 +25,7 @@ app.use(
 app.use(express.json());
 
 app.get("/", (req, res) => {
-  res.send("Job Portal Backend running 🚀");
+  res.send("Job Portal Backend running ");
 });
 
 app.use("/api/users", userRoutes);
