@@ -1,12 +1,16 @@
-// routes/jobRoutes.js
+
 import express from "express";
-import jobController from "../controllers/jobcontroller.js";
+import jobController from "../controllers/jobController.js";
 import authenticate from "../middleware/auth.js";
 
 const router = express.Router();
 
-router.post("/", authenticate, jobController.createJob); // Employer only
+// Public route (anyone can view jobs)
 router.get("/", jobController.getJobs);
-router.get("/:id", jobController.getJobById);
+
+// Protected routes (only logged-in users can manage jobs)
+router.post("/", authenticate, jobController.createJob);
+router.put("/:id", authenticate, jobController.updateJob);
+router.delete("/:id", authenticate, jobController.deleteJob);
 
 export default router;
