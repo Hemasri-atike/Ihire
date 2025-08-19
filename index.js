@@ -30,7 +30,7 @@ app.get("/", (req, res) => {
 
 app.use("/api/users", userRoutes);
 app.use("/api/jobs", jobRoutes);
-app.use("/api/applications", applicationRoutes);
+app.use("/api/application", applicationRoutes);
 
 app.use((err, req, res, next) => {
   console.error(err.stack);
