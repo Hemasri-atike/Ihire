@@ -4,6 +4,9 @@ import cors from "cors";
 import userRoutes from "./routes/userRoutes.js";
 import jobRoutes from "./routes/jobRoutes.js";
 import applicationRoutes from "./routes/applicationRoutes.js";
+import applicantRoutes from "./routes/applicant.js"
+
+
 
 dotenv.config();
 
@@ -31,6 +34,7 @@ app.get("/", (req, res) => {
 app.use("/api/users", userRoutes);
 app.use("/api/jobs", jobRoutes);
 app.use("/api/application", applicationRoutes);
+app.use("/api/applicants", applicantRoutes);
 
 app.use((err, req, res, next) => {
   console.error(err.stack);
