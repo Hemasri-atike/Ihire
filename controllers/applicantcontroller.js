@@ -24,5 +24,21 @@ const createApplicant = async (req, res) => {
     res.status(500).json({ error: "Error creating applicant", details: err.message });
   }
 };
+// Delete applicant
+const deleteApplicant = async (req, res) => {
+  const { id } = req.params;
 
-export default { getApplicants, createApplicant };
+  try {
+    const [result] = await db.query("DELETE FROM applicants WHERE id = ?", [id]);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: "Applicant not found" });
+    }
+
+    res.json({ message: "Applicant deleted successfully" });
+  } catch (err) {
+    res.status(500).json({ error: "Error deleting applicant", details: err.message });
+  }
+};
+
+export default { getApplicants, createApplicant,deleteApplicant };

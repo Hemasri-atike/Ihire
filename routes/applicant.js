@@ -8,5 +8,8 @@ router.get("/", applicantController.getApplicants);
 
 // Create new applicant
 router.post("/", applicantController.createApplicant);
+router.delete("/:id", applicantController.deleteApplicant);
+
+
 
 export default router;
