@@ -6,7 +6,8 @@ import jobRoutes from "./routes/jobRoutes.js";
 import applicationRoutes from "./routes/applicationRoutes.js";
 import applicantRoutes from "./routes/applicant.js";
 import companyRoutes from "./routes/companyRoutes.js";
-
+import dashboardroutes from "./routes/dashboardroutes.js";
+import candidateRoutes from "./routes/candidateroute.js"
 dotenv.config();
 
 const app = express();
@@ -38,7 +39,12 @@ app.use("/api/users", userRoutes);
 app.use("/api/jobs", jobRoutes);
 app.use("/api/application", applicationRoutes);
 app.use("/api/applicants", applicantRoutes);
-app.use("/api/companies", companyRoutes); // ✅ FIXED
+app.use("/api/companies", companyRoutes); 
+app.use("/api/dashboard", dashboardroutes);
+app.use("/api/candidates", candidateRoutes);
+// app.use("/api/employer/dashboard", employerRoutes);
+// app.use("/api/candidate/dashboard", candidateRoutes);
+
 
 // ✅ Global Error Handler
 app.use((err, req, res, next) => {
