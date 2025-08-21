@@ -1,49 +1,117 @@
 // controllers/jobcontroller.js
 import db from "../config/db.js";
 
-// Get all jobs
+// GET /api/jobs?status=Shortlisted&search=Engineer&page=1&limit=4
 const getJobs = async (req, res) => {
   try {
-    const [jobs] = await db.query("SELECT * FROM jobs");
-    res.json(jobs);
+    const { status, search, page = 1, limit = 4 } = req.query;
+    const offset = (page - 1) * limit;
+
+    let baseQuery = "SELECT * FROM jobs WHERE 1=1";
+    const params = [];
+
+    // Filter by status
+    if (status && status !== "All") {
+      baseQuery += " AND status = ?";
+      params.push(status);
+    }
+
+    // Search by title or company
+    if (search) {
+      baseQuery += " AND (title LIKE ? OR company_name LIKE ?)";
+      params.push(`%${search}%`, `%${search}%`);
+    }
+
+    // Get total count
+    const [totalResult] = await db.query(baseQuery, params);
+    const total = totalResult.length;
+
+    // Pagination
+    baseQuery += " LIMIT ? OFFSET ?";
+    params.push(parseInt(limit), parseInt(offset));
+
+    const [jobs] = await db.query(baseQuery, params);
+
+    // Parse JSON columns
+    const jobsWithParsedJSON = jobs.map(job => ({
+      ...job,
+      tags: JSON.parse(job.tags || "[]"),
+      recruiterActions: JSON.parse(job.recruiterActions || '{"invitationSent": false, "resumeDownloaded": false}')
+    }));
+
+    res.json({ jobs: jobsWithParsedJSON, total, page: parseInt(page), limit: parseInt(limit) });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: "Error fetching jobs", details: err.message });
   }
 };
 
-// Create job
+// CREATE job
 const createJob = async (req, res) => {
-  const { title, description, location, salary, company_name } = req.body;
+  const { title, description, location, salary, company_name, status, tags, recruiterActions } = req.body;
   const user_id = req.user.id; // From authenticate middleware
 
   try {
     const [result] = await db.query(
-      "INSERT INTO jobs (title, description, location, salary, company_name, user_id) VALUES (?, ?, ?, ?, ?, ?)",
-      [title, description, location, salary, company_name, user_id]
+      `INSERT INTO jobs 
+       (title, description, location, salary, company_name, user_id, status, tags, recruiterActions)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        title,
+        description,
+        location,
+        salary,
+        company_name,
+        user_id,
+        status || "Shortlisted",
+        JSON.stringify(tags || []),
+        JSON.stringify(recruiterActions || { invitationSent: false, resumeDownloaded: false })
+      ]
     );
+
     res.json({ message: "Job created successfully", jobId: result.insertId });
   } catch (err) {
     res.status(500).json({ error: "Error creating job", details: err.message });
   }
 };
 
-// Update job
+// UPDATE job
 const updateJob = async (req, res) => {
   const { id } = req.params;
-  const { title, description, location, salary, company_name } = req.body;
+  const { title, description, location, salary, company_name, status, tags, recruiterActions } = req.body;
 
   try {
     await db.query(
-      "UPDATE jobs SET title=?, description=?, location=?, salary=?, company_name=? WHERE id=?",
-      [title, description, location, salary, company_name, id]
+      `UPDATE jobs SET 
+        title = ?, 
+        description = ?, 
+        location = ?, 
+        salary = ?, 
+        company_name = ?, 
+        status = ?, 
+        tags = ?, 
+        recruiterActions = ? 
+       WHERE id = ?`,
+      [
+        title,
+        description,
+        location,
+        salary,
+        company_name,
+        status,
+        JSON.stringify(tags || []),
+        JSON.stringify(recruiterActions || { invitationSent: false, resumeDownloaded: false }),
+        id
+      ]
     );
+
     res.json({ message: "Job updated successfully" });
   } catch (err) {
     res.status(500).json({ error: "Error updating job", details: err.message });
   }
 };
 
-// Delete job
+// DELETE job
 const deleteJob = async (req, res) => {
   const { id } = req.params;
 
