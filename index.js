@@ -9,7 +9,13 @@ import companyRoutes from "./routes/companyRoutes.js";
 import dashboardroutes from "./routes/dashboardroutes.js";
 import candidateRoutes from "./routes/candidateroute.js"
 // import  appliedjobs from "./routes/appliedjob.js";
-import candidateResumeRoutes from "./routes/resumeRoutes.js"
+import candidateResumeRoutes from "./routes/resumeRoutes.js";
+import jobAlertRoutes from "./routes/jobalertRoutes.js";
+import  categoryRoutes from "./routes/categoryRoutes.js"
+
+
+
+
 dotenv.config();
 
 const app = express();
@@ -46,7 +52,9 @@ app.use("/api/dashboard", dashboardroutes);
 app.use("/api/candidates", candidateRoutes);
 // app.use("/api/candidates", candidateRoutes); 
 app.use("/api/candidates/resume", candidateResumeRoutes); 
-
+// app.use("/api/job-alerts", jobAlertRoutes); 
+app.use("/api/jobalerts", jobAlertRoutes);
+app.use("/api/categories", categoryRoutes);
 
 
 
@@ -55,13 +63,13 @@ app.use("/api/candidates/resume", candidateResumeRoutes);
 // app.use("/api/candidate/dashboard", candidateRoutes);
 
 
-// ✅ Global Error Handler
+// Global Error Handler
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({ error: "Internal server error", details: err.message });
 });
 
-// ✅ Server
+// Server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);
