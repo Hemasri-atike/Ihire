@@ -8,7 +8,8 @@ import applicantRoutes from "./routes/applicant.js";
 import companyRoutes from "./routes/companyRoutes.js";
 import dashboardroutes from "./routes/dashboardroutes.js";
 import candidateRoutes from "./routes/candidateroute.js"
-// import  appliedjobs from "./routes/appliedjob.js"
+// import  appliedjobs from "./routes/appliedjob.js";
+import candidateResumeRoutes from "./routes/resumeRoutes.js"
 dotenv.config();
 
 const app = express();
@@ -43,6 +44,12 @@ app.use("/api/applicants", applicantRoutes);
 app.use("/api/companies", companyRoutes); 
 app.use("/api/dashboard", dashboardroutes);
 app.use("/api/candidates", candidateRoutes);
+// app.use("/api/candidates", candidateRoutes); 
+app.use("/api/candidates/resume", candidateResumeRoutes); 
+
+
+
+
 // app.use("/api/candidate", appliedjobs);
 // app.use("/api/employer/dashboard", employerRoutes);
 // app.use("/api/candidate/dashboard", candidateRoutes);
