@@ -1,17 +1,40 @@
 // middleware/auth.js
+// import jwt from "jsonwebtoken";
+
+// const authenticateJWT = (req, res, next) => {
+//   const token = req.headers.authorization?.split(" ")[1]; 
+//   if (!token) return res.status(401).json({ error: "No token provided" });
+
+//   try {
+//     const decoded = jwt.verify(token, process.env.JWT_SECRET || "your_jwt_secret");
+//     req.user = decoded;
+//     next();
+//   } catch (err) {
+//     res.status(401).json({ error: "Invalid token" });
+//   }
+// };
+
+// export default authenticateJWT;
+
+
+
+
 import jwt from "jsonwebtoken";
 
 const authenticateJWT = (req, res, next) => {
   const token = req.headers.authorization?.split(" ")[1]; 
-  if (!token) return res.status(401).json({ error: "No token provided" });
+  if (!token) {
+    return res.status(401).json({ error: "No token provided" });
+  }
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET || "your_jwt_secret");
-    req.user = decoded;
+    req.user = decoded; // decoded will have id, email, role, etc.
     next();
   } catch (err) {
-    res.status(401).json({ error: "Invalid token" });
+    return res.status(401).json({ error: "Invalid token" });
   }
 };
 
 export default authenticateJWT;
+

@@ -11,6 +11,6 @@ router.post("/register", userController.register);
 router.post("/login", userController.login);
 
 // Get all users (Admin only)
-router.get("/", authenticate, userController.getUsers);
+router.get("/",  userController.getUsers);
 
 export default router;
