@@ -12,7 +12,8 @@ import candidateRoutes from "./routes/candidateroute.js"
 import candidateResumeRoutes from "./routes/resumeRoutes.js";
 import jobAlertRoutes from "./routes/jobalertRoutes.js";
 import  categoryRoutes from "./routes/categoryRoutes.js";
-import  footerRoute from "./routes/footerRoute.js"
+import  footerRoute from "./routes/footerRoute.js";
+import profileRoutes from "./routes/profileRoutes.js"
 
 
 
@@ -57,6 +58,8 @@ app.use("/api/candidates/resume", candidateResumeRoutes);
 app.use("/api/jobalerts", jobAlertRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/footer", footerRoute);
+
+app.use("/api/profile", profileRoutes);
 
 
 
