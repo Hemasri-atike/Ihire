@@ -1,4 +1,4 @@
-// Simulated in-memory footer storage for simplicity
+// Simulated in-memory footer storage
 let footerData = {
   candidates: [
     "Browse Jobs",
@@ -7,51 +7,74 @@ let footerData = {
     "Job Alerts",
     "My Bookmarks",
   ],
-  employers: ["Browse Candidates", "Employer Dashboard", "Add Job", "Job Packages"],
+  employers: [
+    "Browse Candidates",
+    "Employer Dashboard",
+    "Add Job",
+    "Job Packages",
+  ],
   about: ["About Us", "Job Page Invoice", "Terms Page", "Blog", "Contact"],
 };
 
+// GET /api/footer
 const getFooter = async (req, res) => {
   try {
     res.json({ data: footerData });
   } catch (err) {
-    res.status(500).json({ error: "Error fetching footer", details: err.message });
+    res
+      .status(500)
+      .json({ error: "Error fetching footer", details: err.message });
   }
 };
 
-// POST new footer data
+// POST /api/footer -> replace entire footer object
 const createFooter = async (req, res) => {
   try {
-    const { section, links } = req.body; // section: "candidates", "employers", "about"
-    if (!section || !links || !Array.isArray(links)) {
-      return res.status(400).json({ error: "Invalid payload" });
+    const newFooter = req.body;
+
+    if (typeof newFooter !== "object" || Array.isArray(newFooter)) {
+      return res
+        .status(400)
+        .json({ error: "Invalid payload. Provide an object with sections." });
     }
 
-    footerData[section] = links;
-    res.json({ message: "Footer section added/updated successfully", data: footerData });
+    footerData = newFooter; // replace entire footer data
+    res.json({
+      message: "Footer data replaced successfully",
+      data: footerData,
+    });
   } catch (err) {
-    res.status(500).json({ error: "Error creating footer", details: err.message });
+    res
+      .status(500)
+      .json({ error: "Error creating footer", details: err.message });
   }
 };
 
-// PUT /api/footer/:section to update a specific section
+// PUT /api/footer/:section -> update a specific section only
 const updateFooter = async (req, res) => {
   try {
-    const { section } = req.params; // section: "candidates", "employers", "about"
+    const { section } = req.params;
     const { links } = req.body;
 
     if (!footerData[section]) {
-      return res.status(404).json({ error: "Section not found" });
+      return res.status(404).json({ error: `Section '${section}' not found` });
     }
 
-    if (!links || !Array.isArray(links)) {
-      return res.status(400).json({ error: "Invalid payload" });
+    if (!Array.isArray(links)) {
+      return res
+        .status(400)
+        .json({ error: "Invalid payload. Provide 'links' as an array." });
     }
 
     footerData[section] = links;
-    res.json({ message: `Footer section '${section}' updated successfully`, data: footerData });
+    res.json({
+      message: `Footer section '${section}' updated successfully`,
+      data: footerData,
+    });
   } catch (err) {
-    res.status(500).json({ error: "Error updating footer", details: err.message });
+    res
+      .status(500)
+      .json({ error: "Error updating footer", details: err.message });
   }
 };
 
