@@ -19,9 +19,7 @@ import jobAlertRoutes from "./routes/jobalertRoutes.js";
 import categoryRoutes from "./routes/categoryRoutes.js";
 import footerRoute from "./routes/footerRoute.js";
 import profileRoutes from "./routes/profileRoutes.js";
-// import headerRoutes from "./routes/headerRoutes.js";
 
-// (import your other routes here...)
 
 const app = express();
 
@@ -50,9 +48,6 @@ app.use("/api/jobalerts", jobAlertRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/footer", footerRoute);
 app.use("/api/profile", profileRoutes);
-// app.use("/api/header", headerRoutes);
-
-// (use other routes here...)
 
 // Global error handler
 app.use((err, req, res, next) => {
