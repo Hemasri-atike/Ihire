@@ -1,10 +1,10 @@
 import express from "express";
-import { getProfile, createProfile, updateProfile } from "../controllers/profileController.js"
+import { getProfile, updateProfile } from "../controllers/profileController.js";
+import authenticateJWT from "../middleware/auth.js";
 
 const router = express.Router();
 
-router.get("/", getProfile);    // GET /api/profile
-router.post("/", createProfile); // POST /api/profile
-router.put("/", updateProfile);  // PUT /api/profile
+router.get("/", authenticateJWT, getProfile);
+router.put("/", authenticateJWT, updateProfile);
 
 export default router;

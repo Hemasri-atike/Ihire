@@ -47,8 +47,8 @@ app.use("/api/candidates/resume", candidateResumeRoutes);
 app.use("/api/jobalerts", jobAlertRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/footer", footerRoute);
-app.use("/api/profile", profileRoutes);
 
+app.use("/api/profile", profileRoutes);
 // Global error handler
 app.use((err, req, res, next) => {
   console.error(err.stack);

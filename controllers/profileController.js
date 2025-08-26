@@ -1,40 +1,32 @@
-import db from "../config/db.js";
+import pool from "../config/db.js";
 
-// Get profile (assuming only one profile row exists with id=1)
+// Get candidate profile (from logged-in user)
 export const getProfile = async (req, res) => {
   try {
-    const [rows] = await db.query("SELECT * FROM profiles WHERE id = 1");
+    const userId = req.user.id; // comes from JWT
+    const [rows] = await pool.query("SELECT id, name, email, phone, designation, company, location, about FROM users WHERE id = ?", [userId]);
+
     if (rows.length === 0) {
       return res.status(404).json({ message: "Profile not found" });
     }
+
     res.json(rows[0]);
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch profile", details: err.message });
   }
 };
 
-// Create profile (first time)
-export const createProfile = async (req, res) => {
-  try {
-    const { name, email, phone, designation, company, location, about } = req.body;
-    await db.query(
-      "INSERT INTO profiles (id, name, email, phone, designation, company, location, about) VALUES (1, ?, ?, ?, ?, ?, ?, ?)",
-      [name, email, phone, designation, company, location, about]
-    );
-    res.status(201).json({ message: "Profile created successfully" });
-  } catch (err) {
-    res.status(500).json({ error: "Failed to create profile", details: err.message });
-  }
-};
-
-// Update profile
+// Update candidate profile
 export const updateProfile = async (req, res) => {
   try {
+    const userId = req.user.id;
     const { name, email, phone, designation, company, location, about } = req.body;
-    await db.query(
-      "UPDATE profiles SET name=?, email=?, phone=?, designation=?, company=?, location=?, about=? WHERE id=1",
-      [name, email, phone, designation, company, location, about]
+
+    await pool.query(
+      "UPDATE users SET name=?, email=?, phone=?, designation=?, company=?, location=?, about=? WHERE id=?",
+      [name, email, phone, designation, company, location, about, userId]
     );
+
     res.json({ message: "Profile updated successfully" });
   } catch (err) {
     res.status(500).json({ error: "Failed to update profile", details: err.message });
