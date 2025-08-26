@@ -4,6 +4,7 @@ dotenv.config();
 
 import express from "express";
 import cors from "cors";
+import pool from "./config/db.js";
 
 // Routes
 import headerRoutes from "./routes/headerRoutes.js";
@@ -54,6 +55,18 @@ app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({ error: "Internal server error", details: err.message });
 });
+
+// Test database connection
+(async () => {
+  try {
+    const connection = await pool.getConnection();
+    console.log("MySQL connected successfully");
+    connection.release();
+  } catch (err) {
+    console.error("MySQL connection failed:", err.message);
+    process.exit(1); // stop server if DB fails
+  }
+})();
 
 // Server
 const PORT = process.env.PORT || 5000;

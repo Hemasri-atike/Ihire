@@ -73,7 +73,7 @@ const userController = {
         user: {
           id: user.id,
           name: user.name,
-          email: user.email, // <-- Added email for consistency
+          email: user.email, 
           role: user.role,
           mobile: user.mobile,
           company_name: user.company_name,
