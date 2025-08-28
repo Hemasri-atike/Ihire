@@ -20,6 +20,8 @@ import jobAlertRoutes from "./routes/jobalertRoutes.js";
 import categoryRoutes from "./routes/categoryRoutes.js";
 import footerRoute from "./routes/footerRoute.js";
 import profileRoutes from "./routes/profileRoutes.js";
+import resumeRoutes from "./routes/resumeRoutes.js";
+
 
 
 const app = express();
@@ -48,6 +50,7 @@ app.use("/api/candidates/resume", candidateResumeRoutes);
 app.use("/api/jobalerts", jobAlertRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/footer", footerRoute);
+app.use("/api/resume", resumeRoutes);
 
 app.use("/api/profile", profileRoutes);
 // Global error handler
