@@ -1,50 +1,7 @@
 // controllers/jobcontroller.js
 import db from "../config/db.js";
 
-// GET /api/jobs?status=Shortlisted&search=Engineer&page=1&limit=4
-// const getJobs = async (req, res) => {
-//   try {
-//     const { status, search, page = 1, limit = 4 } = req.query;
-//     const offset = (page - 1) * limit;
 
-//     let baseQuery = "SELECT * FROM jobs WHERE 1=1";
-//     const params = [];
-
-//     // Filter by status
-//     if (status && status !== "All") {
-//       baseQuery += " AND status = ?";
-//       params.push(status);
-//     }
-
-//     // Search by title or company
-//     if (search) {
-//       baseQuery += " AND (title LIKE ? OR company_name LIKE ?)";
-//       params.push(`%${search}%`, `%${search}%`);
-//     }
-
-//     // Get total count
-//     const [totalResult] = await db.query(baseQuery, params);
-//     const total = totalResult.length;
-
-//     // Pagination
-//     baseQuery += " LIMIT ? OFFSET ?";
-//     params.push(parseInt(limit), parseInt(offset));
-
-//     const [jobs] = await db.query(baseQuery, params);
-
-//     // Parse JSON columns
-//     const jobsWithParsedJSON = jobs.map(job => ({
-//       ...job,
-//       tags: JSON.parse(job.tags || "[]"),
-//       recruiterActions: JSON.parse(job.recruiterActions || '{"invitationSent": false, "resumeDownloaded": false}')
-//     }));
-
-//     res.json({ jobs: jobsWithParsedJSON, total, page: parseInt(page), limit: parseInt(limit) });
-//   } catch (err) {
-//     console.error(err);
-//     res.status(500).json({ error: "Error fetching jobs", details: err.message });
-//   }
-// };
 const getJobs = async (req, res) => {
   try {
     const { status, search, page = 1, limit = 4 } = req.query;
