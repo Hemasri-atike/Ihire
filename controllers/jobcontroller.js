@@ -1,5 +1,5 @@
 // controllers/jobcontroller.js
-import db from "../config/db.js";
+import pool from "../config/db.js";
 
 
 const getJobs = async (req, res) => {
@@ -23,14 +23,14 @@ const getJobs = async (req, res) => {
     }
 
     // Get total count
-    const [totalResult] = await db.query(baseQuery, params);
+    const [totalResult] = await pool.query(baseQuery, params);
     const total = totalResult.length;
 
     // Pagination
     baseQuery += " LIMIT ? OFFSET ?";
     params.push(parseInt(limit), parseInt(offset));
 
-    const [jobs] = await db.query(baseQuery, params);
+    const [jobs] = await pool.query(baseQuery, params);
 
     // Safe parsing for tags and recruiterActions
     const jobsWithParsedJSON = jobs.map(job => ({
@@ -66,7 +66,7 @@ const createJob = async (req, res) => {
   const user_id = req.user.id; // From authenticate middleware
 
   try {
-    const [result] = await db.query(
+    const [result] = await pool.query(
       `INSERT INTO jobs 
        (title, description, location, salary, company_name, user_id, status, tags, recruiterActions)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -95,7 +95,7 @@ const updateJob = async (req, res) => {
   const { title, description, location, salary, company_name, status, tags, recruiterActions } = req.body;
 
   try {
-    await db.query(
+    await pool.query(
       `UPDATE jobs SET 
         title = ?, 
         description = ?, 
@@ -130,7 +130,7 @@ const deleteJob = async (req, res) => {
   const { id } = req.params;
 
   try {
-    await db.query("DELETE FROM jobs WHERE id=?", [id]);
+    await pool.query("DELETE FROM jobs WHERE id=?", [id]);
     res.json({ message: "Job deleted successfully" });
   } catch (err) {
     res.status(500).json({ error: "Error deleting job", details: err.message });
