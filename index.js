@@ -21,6 +21,7 @@ import categoryRoutes from "./routes/categoryRoutes.js";
 import footerRoute from "./routes/footerRoute.js";
 import profileRoutes from "./routes/profileRoutes.js";
 import resumeRoutes from "./routes/resumeRoutes.js";
+import empRoutes from "./routes/empRoutes.js"
 
 
 
@@ -51,6 +52,9 @@ app.use("/api/jobalerts", jobAlertRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/footer", footerRoute);
 app.use("/api/resume", resumeRoutes);
+
+
+app.use("/api/employees", empRoutes);
 
 app.use("/api/profile", profileRoutes);
 // Global error handler
