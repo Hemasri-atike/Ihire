@@ -52,6 +52,7 @@ app.use("/api/jobalerts", jobAlertRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/footer", footerRoute);
 app.use("/api/resume", resumeRoutes);
+// app.use("/api/companies", companyRouter);
 
 
 app.use("/api/employees", empRoutes);

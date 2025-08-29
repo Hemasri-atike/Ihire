@@ -1,27 +1,4 @@
-import db from "../config/db.js";
-
-// ✅ Get all companies
-export const getAllCompanies = async (req, res) => {
-  try {
-    const [rows] = await db.query("SELECT * FROM companies");
-    res.json(rows);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-};
-
-// Get company by ID
-export const getCompany = async (req, res) => {
-  try {
-    const [rows] = await db.query("SELECT * FROM companies WHERE id = ?", [req.params.id]);
-    if (rows.length === 0) return res.status(404).json({ message: "Company not found" });
-    res.json(rows[0]);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-};
-
-
+import pool from "../config/db.js";
 
 
 
@@ -31,71 +8,145 @@ export const getCompany = async (req, res) => {
 export const createCompany = async (req, res) => {
   try {
     const {
-      name, industry, description, established,
-      headquarters, employeeSize, location, about,
-      website, email, phone, logo, socialLinks
+      name,
+      industry,
+      location,
+      about,
+      website,
+      email,
+      phone,
+      description,
+      established,
+      headquarters,
+      employeeSize,
+      logo,
+      socialLinks,
     } = req.body;
 
-    const [result] = await db.query(
+    const [result] = await pool.query(
       `INSERT INTO companies 
-      (name, industry, description, established, headquarters, employeeSize, location, about, website, email, phone, logo, socialLinks) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (name, industry, location, about, website, email, phone, description, established, 
+         headquarters, employeeSize, logo, socialLinks) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        name, industry, description, established,
-        headquarters, employeeSize, location, about,
-        website, email, phone, logo,
-        JSON.stringify(socialLinks)
+        name,
+        industry,
+        location,
+        about,
+        website,
+        email,
+        phone,
+        description,
+        established,
+        headquarters,
+        employeeSize,
+        logo,
+        JSON.stringify(socialLinks), // ✅ store object as JSON string
       ]
     );
 
-    res.json({ message: "Company created successfully", companyId: result.insertId });
+    const [newCompany] = await pool.query("SELECT * FROM companies WHERE id = ?", [result.insertId]);
+
+    res.status(201).json({
+      ...newCompany[0],
+      socialLinks: newCompany[0].socialLinks ? JSON.parse(newCompany[0].socialLinks) : {},
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
 
 
-// ✅ Create new company
-// export const createCompany = async (req, res) => {
-//   try {
-//     const { name, industry, location, about, website, email, phone } = req.body;
-
-//     const [result] = await db.query(
-//       "INSERT INTO companies (name, industry, location, about, website, email, phone) VALUES (?, ?, ?, ?, ?, ?, ?)",
-//       [name, industry, location, about, website, email, phone]
-//     );
-
-//     res.json({ message: "Company created successfully", companyId: result.insertId });
-//   } catch (error) {
-//     res.status(500).json({ error: error.message });
-//   }
-// };
-
-
+// ✅ Update company
 export const updateCompany = async (req, res) => {
   try {
-    const { name, industry, location, about, website, email, phone } = req.body;
+    const {
+      name,
+      industry,
+      location,
+      about,
+      website,
+      email,
+      phone,
+      description,
+      established,
+      headquarters,
+      employeeSize,
+      logo,
+      socialLinks,
+    } = req.body;
+    await pool.query(
+  `UPDATE companies SET name=?, industry=?, location=?, about=?, website=?, email=?, phone=?, 
+   description=?, established=?, headquarters=?, employeeSize=?, logo=?, socialLinks=? WHERE id=?`,
+  [
+    name, industry, location, about, website, email, phone,
+    description, established, headquarters, employeeSize, logo,
+    JSON.stringify(socialLinks), // ✅ convert object to string
+    req.params.id
+  ]
+);
 
-    await db.query(
-      "UPDATE companies SET name=?, industry=?, location=?, about=?, website=?, email=?, phone=? WHERE id=?",
-      [name, industry, location, about, website, email, phone, req.params.id]
+
+    await pool.query(
+      `UPDATE companies SET 
+        name=?, industry=?, location=?, about=?, website=?, email=?, phone=?, 
+        description=?, established=?, headquarters=?, employeeSize=?, logo=?, socialLinks=? 
+       WHERE id=?`,
+      [
+        name,
+        industry,
+        location,
+        about,
+        website,
+        email,
+        phone,
+        description,
+        established,
+        headquarters,
+        employeeSize,
+        logo,
+        JSON.stringify(socialLinks),
+        req.params.id,
+      ]
     );
+    const [updatedRows] = await pool.query("SELECT * FROM companies WHERE id=?", [req.params.id]);
 
-    const [updatedRows] = await db.query("SELECT * FROM companies WHERE id=?", [req.params.id]);
-
-    res.json(updatedRows[0]); // ✅ return updated company
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
+const company = {
+  ...updatedRows[0],
+  socialLinks: updatedRows[0].socialLinks ? JSON.parse(updatedRows[0].socialLinks) : {},
 };
 
+res.json(company);
 
-// ✅ Delete company
-export const deleteCompany = async (req, res) => {
+
+    
+    res.json(company);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+// controllers/companyController.js
+
+
+
+export const getCompany = async (req, res) => {
   try {
-    await db.query("DELETE FROM companies WHERE id = ?", [req.params.id]);
-    res.json({ message: "Company deleted successfully" });
+    const companyId = Number(req.params.id); // convert to number
+    if (isNaN(companyId)) return res.status(400).json({ message: "Invalid company ID" });
+
+    const [rows] = await pool.query("SELECT * FROM companies WHERE id = ?", [companyId]);
+
+    if (rows.length === 0) return res.status(404).json({ message: "Company not found" });
+
+    // Parse socialLinks JSON
+    const company = {
+      ...rows[0],
+      socialLinks: rows[0].socialLinks ? JSON.parse(rows[0].socialLinks) : {},
+    };
+
+    res.json(company);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
+
