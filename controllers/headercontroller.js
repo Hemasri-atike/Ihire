@@ -1,7 +1,6 @@
 // controllers/headercontroller.js
-import pool from "../config/db.js"; // Make sure your MySQL pool is exported from db.js
+import pool from "../config/db.js";
 
-// GET /api/header
 export const getHeader = async (req, res) => {
   try {
     const [rows] = await pool.query("SELECT * FROM header LIMIT 1");
@@ -9,17 +8,24 @@ export const getHeader = async (req, res) => {
 
     const header = rows[0];
 
-    const logo = typeof header.logo === "string" ? JSON.parse(header.logo) : header.logo;
-    const navLinks = typeof header.navLinks === "string" ? JSON.parse(header.navLinks) : header.navLinks;
-    const actionLinks = typeof header.actionLinks === "string" ? JSON.parse(header.actionLinks) : header.actionLinks;
+    const safeParse = (value) => {
+      try {
+        return typeof value === "string" ? JSON.parse(value) : value;
+      } catch {
+        return value;
+      }
+    };
 
-    res.json({ logo, navLinks, actionLinks });
+    res.json({
+      logo: safeParse(header.logo),
+      navLinks: safeParse(header.navLinks),
+      actionLinks: safeParse(header.actionLinks),
+    });
   } catch (err) {
     res.status(500).json({ error: "Error fetching header", details: err.message });
   }
 };
 
-// POST /api/header
 export const createHeader = async (req, res) => {
   try {
     const { logo, navLinks, actionLinks } = req.body;
@@ -27,8 +33,10 @@ export const createHeader = async (req, res) => {
       return res.status(400).json({ error: "Invalid payload" });
     }
 
+    // ✅ Insert or update safely
     await pool.query(
-      "UPDATE header SET logo = ?, navLinks = ?, actionLinks = ? WHERE id = 1",
+      "INSERT INTO header (id, logo, navLinks, actionLinks) VALUES (1, ?, ?, ?) " +
+      "ON DUPLICATE KEY UPDATE logo = VALUES(logo), navLinks = VALUES(navLinks), actionLinks = VALUES(actionLinks)",
       [JSON.stringify(logo), JSON.stringify(navLinks), JSON.stringify(actionLinks)]
     );
 
