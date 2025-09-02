@@ -46,7 +46,7 @@ app.use("/api/application", applicationRoutes);
 app.use("/api/applicants", applicantRoutes);
 app.use("/api/companies", companyRoutes); 
 app.use("/api/dashboard", dashboardroutes);
-app.use("/api/candidates", candidateRoutes);
+app.use("/candidates", candidateRoutes);
 app.use("/api/candidates/resume", candidateResumeRoutes); 
 app.use("/api/jobalerts", jobAlertRoutes);
 app.use("/api/categories", categoryRoutes);
