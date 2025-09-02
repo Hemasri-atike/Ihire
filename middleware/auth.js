@@ -14,7 +14,7 @@ const authenticate = (req, res, next) => {
     // 3️⃣ Verify token
     const secret = process.env.JWT_SECRET;
     if (!secret) {
-      console.error("❌ JWT_SECRET is missing in .env file");
+      console.error(" JWT_SECRET is missing in .env file");
       return res.status(500).json({ error: "Server configuration error" });
     }
 
@@ -30,7 +30,7 @@ const authenticate = (req, res, next) => {
     // ✅ Continue to next middleware/controller
     next();
   } catch (err) {
-    console.error("❌ Auth Error:", err.message);
+    console.error(" Auth Error:", err.message);
     return res.status(401).json({
       error: "Invalid or expired token",
       details: err.message,
