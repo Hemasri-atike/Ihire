@@ -1,16 +1,16 @@
 // Candidate Dashboard Controller
-export const getCandidateDashboard = async (req, res, db) => {
+export const getCandidateDashboard = async (req, res, pool) => {
   try {
     const { userId } = req.params;
 
     // Candidate Profile
-    const [profileRows] = await db.query(
+    const [profileRows] = await pool.query(
       "SELECT id, name, email, profile_completion FROM candidates WHERE id = ?",
       [userId]
     );
 
     // Jobs Applied
-    const [appliedJobs] = await db.query(
+    const [appliedJobs] = await pool.query(
       `SELECT j.id, j.title, j.company, j.location, j.salary, aj.status, aj.created_at as time
        FROM applied_jobs aj
        JOIN jobs j ON aj.job_id = j.id
@@ -19,7 +19,7 @@ export const getCandidateDashboard = async (req, res, db) => {
     );
 
     // Notifications
-    const [notifications] = await db.query(
+    const [notifications] = await pool.query(
       "SELECT id, type, message, created_at FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT 5",
       [userId]
     );
@@ -37,24 +37,24 @@ export const getCandidateDashboard = async (req, res, db) => {
 };
 
 // Employer Dashboard Controller
-export const getEmployerDashboard = async (req, res, db) => {
+export const getEmployerDashboard = async (req, res, pool) => {
   try {
     const { employerId } = req.params;
 
     // Jobs posted by employer
-    const [jobs] = await db.query(
+    const [jobs] = await pool.query(
       "SELECT id, title, company, location, salary, applications FROM jobs WHERE employer_id = ?",
       [employerId]
     );
 
     // Notifications
-    const [notifications] = await db.query(
+    const [notifications] = await pool.query(
       "SELECT id, type, message, created_at FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT 5",
       [employerId]
     );
 
     // Stats
-    const [stats] = await db.query(
+    const [stats] = await pool.query(
       "SELECT COUNT(*) as totalApplications FROM applications WHERE employer_id = ?",
       [employerId]
     );
