@@ -5,9 +5,9 @@ import authenticate from "../middleware/auth.js";
 const router = express.Router();
 
 // Get logged-in user's resume
-router.get("/me", authenticate, getResume);
+router.get("/", authenticate, getResume);
 
-// Update logged-in user's resume
-router.put("/me", authenticate, updateResume);
+// Update or create logged-in user's resume
+router.put("/", authenticate, updateResume);
 
 export default router;
