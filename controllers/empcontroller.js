@@ -1,5 +1,5 @@
+// src/controllers/empcontroller.js
 import pool from "../config/db.js";
-
 
 export const uploadResume = (req, res) => {
   if (!req.files || !req.files.resume) {
@@ -34,23 +34,26 @@ export const createEmployee = async (req, res) => {
       certifications = [],
     } = req.body;
 
+    // Validate required fields
+    if (!fullName || !email || !phone || !location) {
+      throw new Error("Missing required fields: fullName, email, phone, location");
+    }
+
     // Replace undefined with null
     const genderValue = gender ?? null;
-    const dobValue = dob ?? null;
+    const dobValue = dob ? new Date(dob).toISOString().split("T")[0] : null;
     const locationValue = location ?? null;
     const resumeValue = resume ?? null;
 
-    // Insert employee
     const [result] = await conn.execute(
       `INSERT INTO employees 
-      (full_name, email, phone, gender, dob, location, resume) 
-      VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [fullName, email, phone, genderValue, dobValue, locationValue, resumeValue]
+      (full_name, email, phone, gender, dob, location, resume, user_id) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [fullName, email, phone, genderValue, dobValue, locationValue, resumeValue, req.user.id]
     );
 
     const employeeId = result.insertId;
 
-    // Insert skills
     for (const skill of skills) {
       if (skill) {
         await conn.execute(
@@ -104,10 +107,10 @@ export const createEmployee = async (req, res) => {
         VALUES (?, ?, ?, ?, ?)`,
         [
           employeeId,
-          cert.cert_name ?? null,  // maps to `name`
-          cert.organization ?? null, // maps to `authority`
-          cert.issue_date ? new Date(cert.issue_date).getFullYear() : null, // maps to `year`
-          cert.cert_name ?? null    // maps to `cert_name`
+          cert.cert_name ?? null,
+          cert.organization ?? null,
+          cert.issue_date ? new Date(cert.issue_date).getFullYear() : null,
+          cert.cert_name ?? null,
         ]
       );
     }
@@ -128,10 +131,10 @@ export const getEmployeeById = async (req, res) => {
     const { id } = req.params;
 
     const [[employee]] = await pool.execute(
-      "SELECT * FROM employees WHERE id = ?",
-      [id]
+      "SELECT * FROM employees WHERE id = ? AND user_id = ?",
+      [id, req.user.id]
     );
-    if (!employee) return res.status(404).json({ error: "Employee not found" });
+    if (!employee) return res.status(404).json({ error: "Employee not found or unauthorized" });
 
     const [skills] = await pool.execute(
       "SELECT * FROM skills WHERE employee_id = ?",
@@ -157,10 +160,27 @@ export const getEmployeeById = async (req, res) => {
   }
 };
 
+export const getAllEmployees = async (req, res) => {
+  try {
+    const [employees] = await pool.execute("SELECT * FROM employees WHERE user_id = ?", [req.user.id]);
+    res.json(employees);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Failed to fetch employees" });
+  }
+};
+
 export const addEmployeeSkill = async (req, res) => {
   try {
     const { id } = req.params;
     const { skill } = req.body;
+
+    const [[employee]] = await pool.execute(
+      "SELECT * FROM employees WHERE id = ? AND user_id = ?",
+      [id, req.user.id]
+    );
+    if (!employee) return res.status(404).json({ error: "Employee not found or unauthorized" });
+
     await pool.execute(
       "INSERT INTO skills (employee_id, skill) VALUES (?, ?)",
       [id, skill ?? null]
@@ -172,9 +192,40 @@ export const addEmployeeSkill = async (req, res) => {
   }
 };
 
+export const deleteEmployeeSkill = async (req, res) => {
+  try {
+    const { id, skill } = req.params;
+
+    const [[employee]] = await pool.execute(
+      "SELECT * FROM employees WHERE id = ? AND user_id = ?",
+      [id, req.user.id]
+    );
+    if (!employee) return res.status(404).json({ error: "Employee not found or unauthorized" });
+
+    const [result] = await pool.execute(
+      "DELETE FROM skills WHERE employee_id = ? AND skill = ?",
+      [id, skill]
+    );
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: "Skill not found" });
+    }
+    res.json({ message: "Skill deleted successfully" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Failed to delete skill" });
+  }
+};
+
 export const getEmployeeSkills = async (req, res) => {
   try {
     const { id } = req.params;
+
+    const [[employee]] = await pool.execute(
+      "SELECT * FROM employees WHERE id = ? AND user_id = ?",
+      [id, req.user.id]
+    );
+    if (!employee) return res.status(404).json({ error: "Employee not found or unauthorized" });
+
     const [skills] = await pool.execute(
       "SELECT * FROM skills WHERE employee_id = ?",
       [id]
@@ -190,7 +241,14 @@ export const addEmployeeEducation = async (req, res) => {
   try {
     const { id } = req.params;
     const { state, city, university, college, degree, field_of_study, duration } = req.body;
-    await pool.execute(
+
+    const [[employee]] = await pool.execute(
+      "SELECT * FROM employees WHERE id = ? AND user_id = ?",
+      [id, req.user.id]
+    );
+    if (!employee) return res.status(404).json({ error: "Employee not found or unauthorized" });
+
+    const [result] = await pool.execute(
       "INSERT INTO education (employee_id, state, city, university, college, degree, field_of_study, duration) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
       [
         id,
@@ -203,16 +261,47 @@ export const addEmployeeEducation = async (req, res) => {
         duration ?? null,
       ]
     );
-    res.json({ message: "Education added successfully" });
+    res.json({ message: "Education added successfully", educationId: result.insertId });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Failed to add education" });
   }
 };
 
+export const deleteEmployeeEducation = async (req, res) => {
+  try {
+    const { id, educationId } = req.params;
+
+    const [[employee]] = await pool.execute(
+      "SELECT * FROM employees WHERE id = ? AND user_id = ?",
+      [id, req.user.id]
+    );
+    if (!employee) return res.status(404).json({ error: "Employee not found or unauthorized" });
+
+    const [result] = await pool.execute(
+      "DELETE FROM education WHERE employee_id = ? AND id = ?",
+      [id, educationId]
+    );
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: "Education not found" });
+    }
+    res.json({ message: "Education deleted successfully" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Failed to delete education" });
+  }
+};
+
 export const getEmployeeEducation = async (req, res) => {
   try {
     const { id } = req.params;
+
+    const [[employee]] = await pool.execute(
+      "SELECT * FROM employees WHERE id = ? AND user_id = ?",
+      [id, req.user.id]
+    );
+    if (!employee) return res.status(404).json({ error: "Employee not found or unauthorized" });
+
     const [education] = await pool.execute(
       "SELECT * FROM education WHERE employee_id = ?",
       [id]
@@ -224,25 +313,62 @@ export const getEmployeeEducation = async (req, res) => {
   }
 };
 
-
 export const addEmployeeExperience = async (req, res) => {
   try {
     const { id } = req.params;
     const { company_name, role, duration, location, description } = req.body;
-    await pool.execute(
+
+    const [[employee]] = await pool.execute(
+      "SELECT * FROM employees WHERE id = ? AND user_id = ?",
+      [id, req.user.id]
+    );
+    if (!employee) return res.status(404).json({ error: "Employee not found or unauthorized" });
+
+    const [result] = await pool.execute(
       "INSERT INTO experience (employee_id, company_name, role, duration, location, description) VALUES (?, ?, ?, ?, ?, ?)",
       [id, company_name ?? null, role ?? null, duration ?? null, location ?? null, description ?? null]
     );
-    res.json({ message: "Experience added successfully" });
+    res.json({ message: "Experience added successfully", experienceId: result.insertId });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Failed to add experience" });
   }
 };
 
+export const deleteEmployeeExperience = async (req, res) => {
+  try {
+    const { id, experienceId } = req.params;
+
+    const [[employee]] = await pool.execute(
+      "SELECT * FROM employees WHERE id = ? AND user_id = ?",
+      [id, req.user.id]
+    );
+    if (!employee) return res.status(404).json({ error: "Employee not found or unauthorized" });
+
+    const [result] = await pool.execute(
+      "DELETE FROM experience WHERE employee_id = ? AND id = ?",
+      [id, experienceId]
+    );
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: "Experience not found" });
+    }
+    res.json({ message: "Experience deleted successfully" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Failed to delete experience" });
+  }
+};
+
 export const getEmployeeExperience = async (req, res) => {
   try {
     const { id } = req.params;
+
+    const [[employee]] = await pool.execute(
+      "SELECT * FROM employees WHERE id = ? AND user_id = ?",
+      [id, req.user.id]
+    );
+    if (!employee) return res.status(404).json({ error: "Employee not found or unauthorized" });
+
     const [experience] = await pool.execute(
       "SELECT * FROM experience WHERE employee_id = ?",
       [id]
@@ -257,30 +383,67 @@ export const getEmployeeExperience = async (req, res) => {
 export const addEmployeeCertification = async (req, res) => {
   try {
     const { id } = req.params;
-    const { cert_name, organization, issue_date, expiry_date } = req.body;
+    const { cert_name, organization, issue_date } = req.body;
 
-    await pool.execute(
+    const [[employee]] = await pool.execute(
+      "SELECT * FROM employees WHERE id = ? AND user_id = ?",
+      [id, req.user.id]
+    );
+    if (!employee) return res.status(404).json({ error: "Employee not found or unauthorized" });
+
+    const [result] = await pool.execute(
       `INSERT INTO certifications
        (employee_id, name, authority, year, cert_name)
        VALUES (?, ?, ?, ?, ?)`,
       [
         id,
-        cert_name ?? null, // maps to `name`
-        organization ?? null, // maps to `authority`
-        issue_date ? new Date(issue_date).getFullYear() : null, // maps to `year`
-        cert_name ?? null, // maps to `cert_name`
+        cert_name ?? null,
+        organization ?? null,
+        issue_date ? new Date(issue_date).getFullYear() : null,
+        cert_name ?? null,
       ]
     );
-
-    res.json({ message: "Certification added successfully" });
+    res.json({ message: "Certification added successfully", certificationId: result.insertId });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Failed to add certification" });
   }
 };
+
+export const deleteEmployeeCertification = async (req, res) => {
+  try {
+    const { id, cert_name } = req.params;
+
+    const [[employee]] = await pool.execute(
+      "SELECT * FROM employees WHERE id = ? AND user_id = ?",
+      [id, req.user.id]
+    );
+    if (!employee) return res.status(404).json({ error: "Employee not found or unauthorized" });
+
+    const [result] = await pool.execute(
+      "DELETE FROM certifications WHERE employee_id = ? AND cert_name = ?",
+      [id, cert_name]
+    );
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: "Certification not found" });
+    }
+    res.json({ message: "Certification deleted successfully" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Failed to delete certification" });
+  }
+};
+
 export const getEmployeeCertifications = async (req, res) => {
   try {
     const { id } = req.params;
+
+    const [[employee]] = await pool.execute(
+      "SELECT * FROM employees WHERE id = ? AND user_id = ?",
+      [id, req.user.id]
+    );
+    if (!employee) return res.status(404).json({ error: "Employee not found or unauthorized" });
+
     const [certifications] = await pool.execute(
       "SELECT * FROM certifications WHERE employee_id = ?",
       [id]

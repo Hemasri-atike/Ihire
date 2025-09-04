@@ -1,55 +1,54 @@
+// src/routes/emproutes.js
 import express from "express";
-import pool from "../config/db.js"
 import {
   uploadResume,
   createEmployee,
   getEmployeeById,
+  getAllEmployees,
   addEmployeeSkill,
+  deleteEmployeeSkill,
   getEmployeeSkills,
   addEmployeeEducation,
+  deleteEmployeeEducation,
   getEmployeeEducation,
   addEmployeeExperience,
+  deleteEmployeeExperience,
   getEmployeeExperience,
   addEmployeeCertification,
-  getEmployeeCertifications
+  deleteEmployeeCertification,
+  getEmployeeCertifications,
 } from "../controllers/empcontroller.js";
+import authenticate from "../middleware/auth.js";
 
 const router = express.Router();
 
-// Employee
-router.post("/", createEmployee);
-router.get("/:id", getEmployeeById);
+
+// Employee Routes
+router.post("/", authenticate, createEmployee);
+router.get("/:id", authenticate, getEmployeeById);
+router.get("/employee", authenticate, getAllEmployees);
 
 // Resume
-router.post("/upload-resume/:id", uploadResume);
+router.post("/upload-resume/:id", authenticate, uploadResume);
 
 // Skills
-router.get("/:id/skills", getEmployeeSkills);
-router.post("/:id/skills", addEmployeeSkill);
+router.get("/:id/skills", authenticate, getEmployeeSkills);
+router.post("/:id/skills", authenticate, addEmployeeSkill);
+router.delete("/:id/skills/:skill", authenticate, deleteEmployeeSkill);
 
 // Education
-router.get("/:id/education", getEmployeeEducation);
-router.post("/:id/education", addEmployeeEducation);
+router.get("/:id/education", authenticate, getEmployeeEducation);
+router.post("/:id/education", authenticate, addEmployeeEducation);
+router.delete("/:id/education/:educationId", authenticate, deleteEmployeeEducation);
 
 // Experience
-router.get("/:id/experience", getEmployeeExperience);
-router.post("/:id/experience", addEmployeeExperience);
+router.get("/:id/experience", authenticate, getEmployeeExperience);
+router.post("/:id/experience", authenticate, addEmployeeExperience);
+router.delete("/:id/experience/:experienceId", authenticate, deleteEmployeeExperience);
 
 // Certifications
-router.get("/:id/certifications", getEmployeeCertifications);
-router.post("/:id/certifications", addEmployeeCertification);
-// Get all employees
-router.get("/", async (req, res) => {
-  try {
-    const [employees] = await pool.execute("SELECT * FROM employees");
-    res.json(employees);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Failed to fetch employees" });
-  }
-});
-// Get employee by ID
-router.get("/:id", getEmployeeById);
-
+router.get("/:id/certifications", authenticate, getEmployeeCertifications);
+router.post("/:id/certifications", authenticate, addEmployeeCertification);
+router.delete("/:id/certifications/:cert_name", authenticate, deleteEmployeeCertification);
 
 export default router;
