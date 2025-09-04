@@ -1,8 +1,6 @@
 import pool from "../config/db.js";
 
-// =======================
-// Upload Resume
-// =======================
+
 export const uploadResume = (req, res) => {
   if (!req.files || !req.files.resume) {
     return res.status(400).json({ error: "No file uploaded" });
@@ -17,9 +15,6 @@ export const uploadResume = (req, res) => {
   });
 };
 
-// =======================
-// Create Employee Profile
-// =======================
 export const createEmployee = async (req, res) => {
   const conn = await pool.getConnection();
   try {
@@ -128,9 +123,6 @@ export const createEmployee = async (req, res) => {
   }
 };
 
-// =======================
-// Fetch Employee Profile
-// =======================
 export const getEmployeeById = async (req, res) => {
   try {
     const { id } = req.params;
@@ -165,11 +157,6 @@ export const getEmployeeById = async (req, res) => {
   }
 };
 
-// =======================
-// Separate Inserts/Getters
-// =======================
-
-// Skills
 export const addEmployeeSkill = async (req, res) => {
   try {
     const { id } = req.params;
@@ -184,6 +171,7 @@ export const addEmployeeSkill = async (req, res) => {
     res.status(500).json({ error: "Failed to add skill" });
   }
 };
+
 export const getEmployeeSkills = async (req, res) => {
   try {
     const { id } = req.params;
@@ -198,7 +186,6 @@ export const getEmployeeSkills = async (req, res) => {
   }
 };
 
-// Education
 export const addEmployeeEducation = async (req, res) => {
   try {
     const { id } = req.params;
@@ -222,6 +209,7 @@ export const addEmployeeEducation = async (req, res) => {
     res.status(500).json({ error: "Failed to add education" });
   }
 };
+
 export const getEmployeeEducation = async (req, res) => {
   try {
     const { id } = req.params;
@@ -236,7 +224,7 @@ export const getEmployeeEducation = async (req, res) => {
   }
 };
 
-// Experience
+
 export const addEmployeeExperience = async (req, res) => {
   try {
     const { id } = req.params;
@@ -251,6 +239,7 @@ export const addEmployeeExperience = async (req, res) => {
     res.status(500).json({ error: "Failed to add experience" });
   }
 };
+
 export const getEmployeeExperience = async (req, res) => {
   try {
     const { id } = req.params;
@@ -265,7 +254,6 @@ export const getEmployeeExperience = async (req, res) => {
   }
 };
 
-// Certifications
 export const addEmployeeCertification = async (req, res) => {
   try {
     const { id } = req.params;

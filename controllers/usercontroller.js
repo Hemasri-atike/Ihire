@@ -3,7 +3,6 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 
 const userController = {
-  // 🔹 Register User
   async register(req, res) {
     try {
       const { name, email, password, role, mobile, company_name } = req.body;
@@ -12,7 +11,6 @@ const userController = {
         return res.status(400).json({ error: "Name, email, mobile, and password are required" });
       }
 
-      // Check duplicate email/mobile
       const [existingUsers] = await pool.query(
         "SELECT * FROM users WHERE mobile = ? OR email = ?",
         [mobile, email]
@@ -36,7 +34,7 @@ const userController = {
       const token = jwt.sign(
         { id: newUserRows[0].id, role: newUserRows[0].role },
         process.env.JWT_SECRET || "your_jwt_secret",
-        { expiresIn: "1h" }
+        { expiresIn: "1d" }
       );
 
       res.status(201).json({
@@ -50,7 +48,6 @@ const userController = {
     }
   },
 
-  // 🔹 Login User (mobile + password)
   async login(req, res) {
     try {
       const { mobile, password } = req.body;
@@ -65,7 +62,7 @@ const userController = {
       const token = jwt.sign(
         { id: user.id, role: user.role },
         process.env.JWT_SECRET || "your_jwt_secret",
-        { expiresIn: "1h" }
+        { expiresIn: "1d" }
       );
 
       res.json({
@@ -85,7 +82,6 @@ const userController = {
     }
   },
 
-  // 🔹 Get All Users (Admin only)
   async getUsers(req, res) {
     try {
       const token = req.headers.authorization?.split(" ")[1];
