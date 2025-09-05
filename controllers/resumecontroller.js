@@ -1,47 +1,61 @@
 import { getResumeByUserId, saveOrUpdateResume } from "../controllers/models/resume.js";
 
-// ✅ Get logged-in user's resume
+// Get logged-in user's resume
 export const getResume = async (req, res) => {
   try {
-    const userId = req.user.id; // from authenticate middleware
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ message: "User not authenticated" });
+    }
+
+    console.log("👉 Fetching resume for userId:", userId);
     const resume = await getResumeByUserId(userId);
-    if (!resume) return res.status(404).json({ message: "No resume found" });
+    if (!resume) {
+      return res.status(404).json({ message: "No resume found for this user" });
+    }
+
     res.json(resume);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error("❌ Error fetching resume:", err.message);
+    res.status(500).json({ message: "Server error while fetching resume" });
   }
 };
 
-// // ✅ Update logged-in user's resume
-// export const updateResume = async (req, res) => {
-//   try {
-//     const userId = req.user.id; // from authenticate middleware
-//     const resumeData = req.body; // ✅ direct body, no wrapping
-
-//     const updatedResume = await saveOrUpdateResume(userId, resumeData);
-//     res.json(updatedResume);
-//   } catch (err) {
-//     res.status(500).json({ message: err.message });
-//   }
-// };
+// Update or create logged-in user's resume
 export const updateResume = async (req, res) => {
   try {
-    const userId = req.user.id;
-    const resumeData = req.body.resumeData; 
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ message: "User not authenticated" });
+    }
 
-    console.log("👉 userId:", userId);
+    const resumeData = req.body;
+    if (!resumeData || typeof resumeData !== "object") {
+      return res.status(400).json({ message: "Invalid resume data provided" });
+    }
+
+    console.log("👉 Updating resume for userId:", userId);
     console.log("👉 resumeData:", JSON.stringify(resumeData, null, 2));
 
-    const updatedResume = await saveOrUpdateResume(userId, resumeData);
+    // Validate personalInfo
+    if (!resumeData.personalInfo || !Array.isArray(resumeData.personalInfo) || resumeData.personalInfo.length !== 1) {
+      return res.status(400).json({ message: "Personal Information must have exactly one entry" });
+    }
 
+    // Additional validation (optional)
+    const { personalInfo } = resumeData;
+    if (!personalInfo[0].fullName || !personalInfo[0].email) {
+      return res.status(400).json({ message: "Full Name and Email are required in Personal Information" });
+    }
+
+    const updatedResume = await saveOrUpdateResume(userId, resumeData);
     if (!updatedResume) {
-      return res.status(400).json({ message: "Could not save resume" });
+      return res.status(400).json({ message: "Could not save or update resume" });
     }
 
     res.json(updatedResume);
   } catch (err) {
-    console.error("❌ Resume update error:", err);
-    res.status(500).json({ message: err.message });
+    console.error("❌ Resume update error:", err.message);
+    res.status(500).json({ message: "Server error while updating resume" });
   }
 };
-
