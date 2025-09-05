@@ -14,4 +14,5 @@ const upload = multer({ dest: "uploads/" });
 router.post("/", upload.single("resume"), createApplication);
 router.get("/", getApplications);
 
+
 export default router;
