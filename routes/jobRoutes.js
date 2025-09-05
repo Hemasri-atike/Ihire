@@ -36,12 +36,15 @@ import authenticate from "../middleware/auth.js";
 
 const router = express.Router();
 
-// Public route - anyone can view jobs
-router.get("/", jobController.getJobs);
+router.get("/", authenticate, jobController.getJobs);
 
-// Protected routes - any logged-in user can create/update/delete jobs
-router.post("/", authenticate, jobController.createJob);
-router.put("/:id", authenticate, jobController.updateJob);
+// Protected routes - Only employers/admins
+router.post("/", authenticate,  jobController.createJob);
+router.patch("/:id", authenticate,  jobController.updateJob);
 router.delete("/:id", authenticate, jobController.deleteJob);
+router.post("/bulk-delete", authenticate, jobController.bulkDeleteJobs);
+router.post("/:id/views", authenticate,jobController.incrementJobViews);
+router.get("/categories",authenticate, jobController.getCategories);
+
 
 export default router;
