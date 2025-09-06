@@ -1,10 +1,7 @@
+// controllers/companyController.js
 import pool from "../config/db.js";
 
-
-
-
-
-
+// ✅ Create company
 export const createCompany = async (req, res) => {
   try {
     const {
@@ -41,7 +38,7 @@ export const createCompany = async (req, res) => {
         headquarters,
         employeeSize,
         logo,
-        JSON.stringify(socialLinks), // ✅ store object as JSON string
+        JSON.stringify(socialLinks), // store object as JSON
       ]
     );
 
@@ -55,7 +52,6 @@ export const createCompany = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
-
 
 // ✅ Update company
 export const updateCompany = async (req, res) => {
@@ -75,17 +71,6 @@ export const updateCompany = async (req, res) => {
       logo,
       socialLinks,
     } = req.body;
-    await pool.query(
-  `UPDATE companies SET name=?, industry=?, location=?, about=?, website=?, email=?, phone=?, 
-   description=?, established=?, headquarters=?, employeeSize=?, logo=?, socialLinks=? WHERE id=?`,
-  [
-    name, industry, location, about, website, email, phone,
-    description, established, headquarters, employeeSize, logo,
-    JSON.stringify(socialLinks), // ✅ convert object to string
-    req.params.id
-  ]
-);
-
 
     await pool.query(
       `UPDATE companies SET 
@@ -109,36 +94,34 @@ export const updateCompany = async (req, res) => {
         req.params.id,
       ]
     );
+
     const [updatedRows] = await pool.query("SELECT * FROM companies WHERE id=?", [req.params.id]);
 
-const company = {
-  ...updatedRows[0],
-  socialLinks: updatedRows[0].socialLinks ? JSON.parse(updatedRows[0].socialLinks) : {},
-};
+    if (updatedRows.length === 0) {
+      return res.status(404).json({ message: "Company not found" });
+    }
 
-res.json(company);
+    const company = {
+      ...updatedRows[0],
+      socialLinks: updatedRows[0].socialLinks ? JSON.parse(updatedRows[0].socialLinks) : {},
+    };
 
-
-    
     res.json(company);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
-// controllers/companyController.js
 
-
-
+// ✅ Get company
 export const getCompany = async (req, res) => {
   try {
-    const companyId = Number(req.params.id); // convert to number
+    const companyId = Number(req.params.id);
     if (isNaN(companyId)) return res.status(400).json({ message: "Invalid company ID" });
 
     const [rows] = await pool.query("SELECT * FROM companies WHERE id = ?", [companyId]);
 
     if (rows.length === 0) return res.status(404).json({ message: "Company not found" });
 
-    // Parse socialLinks JSON
     const company = {
       ...rows[0],
       socialLinks: rows[0].socialLinks ? JSON.parse(rows[0].socialLinks) : {},
@@ -149,4 +132,3 @@ export const getCompany = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
-
