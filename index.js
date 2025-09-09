@@ -1,10 +1,11 @@
-
-// index.js
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import pool from './config/db.js';
-import authenticate from './middleware/auth.js'; // Import authenticate middleware
+import authenticate from './middleware/auth.js';
+import multer from 'multer';
+import { fileURLToPath } from 'url';
+import path from 'path';
 
 // Routes
 import headerRoutes from './routes/headerRoutes.js';
@@ -25,24 +26,49 @@ import empRoutes from './routes/empRoutes.js';
 
 dotenv.config();
 
+// Configure __dirname for ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Configure multer for file uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    if (file.fieldname === 'resume') {
+      cb(null, path.join(__dirname, 'Uploads/resumes'));
+    } else if (file.fieldname === 'coverLetter') {
+      cb(null, path.join(__dirname, 'Uploads/coverLetters'));
+    }
+  },
+  filename: (req, file, cb) => {
+    cb(null, `${Date.now()}-${file.originalname}`);
+  },
+});
+const upload = multer({ storage });
+
 const app = express();
 
 // Middleware
-app.use(cors({
- origin: ['http://localhost:3000', 'http://localhost:5173'],
- methods: ['GET', 'POST', 'PUT', 'DELETE'],
- allowedHeaders: ['Content-Type', 'Authorization'],
-}));
+app.use(
+  cors({
+    origin: ['http://localhost:3000', 'http://localhost:5173'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  })
+);
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // Test route
 app.get('/', (req, res) => res.send('Job Portal Backend running'));
 
-// Routes (apply authenticate middleware to protected routes)
-app.use('/api/header', headerRoutes); // Unprotected if public
-app.use('/api/users', userRoutes); // May include login/register, so check if authentication is needed
+// Routes
+app.use('/api/header', headerRoutes);
+app.use('/api/users', userRoutes);
 app.use('/api/jobs', authenticate, jobRoutes);
-app.use('/api/applications', authenticate, applicationRoutes); // Consolidated from duplicate
+app.use('/api/applications', authenticate, upload.fields([
+  { name: 'resume', maxCount: 1 },
+  { name: 'coverLetter', maxCount: 1 },
+]), applicationRoutes);
 app.use('/api/applicants', authenticate, applicantRoutes);
 app.use('/api/companies', authenticate, companyRoutes);
 app.use('/api/dashboard', authenticate, dashboardRoutes);
@@ -50,33 +76,33 @@ app.use('/api/candidates', authenticate, candidateRoutes);
 app.use('/api/candidates/resume', authenticate, candidateResumeRoutes);
 app.use('/api/jobalerts', authenticate, jobAlertRoutes);
 app.use('/api/categories', authenticate, categoryRoutes);
-app.use('/api/footer', footerRoute); // Unprotected if public
+app.use('/api/footer', footerRoute);
 app.use('/api/profile', authenticate, profileRoutes);
 app.use('/api/resume', authenticate, resumeRoutes);
 app.use('/api/employees', authenticate, empRoutes);
 
 // Global error handler
 app.use((err, req, res, next) => {
- console.error(`Error: ${req.method} ${req.url}`, err.stack);
- res.status(500).json({ error: 'Internal server error', details: err.message });
+  console.error(`Error: ${req.method} ${req.url}`, err.stack);
+  res.status(500).json({ error: 'Internal server error', details: err.message });
 });
 
 // Catch-all for unmatched routes
 app.use((req, res) => {
- console.error(`Route not found: ${req.method} ${req.url}`);
- res.status(404).json({ error: 'Not Found', details: 'Route does not exist' });
+  console.error(`Route not found: ${req.method} ${req.url}`);
+  res.status(404).json({ error: 'Not Found', details: 'Route does not exist' });
 });
 
 // Test database connection
 (async () => {
- try {
- const connection = await pool.getConnection();
- console.log('MySQL connected successfully');
- connection.release();
- } catch (err) {
- console.error('MySQL connection failed:', err.message);
- process.exit(1);
- }
+  try {
+    const connection = await pool.getConnection();
+    console.log('MySQL connected successfully');
+    connection.release();
+  } catch (err) {
+    console.error('MySQL connection failed:', err.message);
+    process.exit(1);
+  }
 })();
 
 // Start server

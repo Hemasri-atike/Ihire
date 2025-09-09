@@ -1,4 +1,3 @@
-// controllers/jobcontroller.js
 import pool from '../config/db.js';
 import fs from 'fs';
 import path from 'path';
@@ -16,37 +15,43 @@ const requireEmployer = (req, res, next) => {
 // Get all jobs (with filtering and pagination)
 const getJobs = async (req, res) => {
   try {
-    const { status, search, page = 1, limit = 4, postedByUser } = req.query;
-    const offset = (page - 1) * limit;
-    const userId = req.user?.id;
+    const { statusFilter = 'All', searchQuery = '', page = 1, jobsPerPage = 10, postedByUser, userId } = req.query;
+    const offset = (page - 1) * jobsPerPage;
+    const authUserId = req.user?.id;
 
     let baseQuery = 'SELECT * FROM jobs WHERE deleted_at IS NULL';
     let countQuery = 'SELECT COUNT(*) as total FROM jobs WHERE deleted_at IS NULL';
     const params = [];
 
-    if (req.user?.role === 'employer' || postedByUser === 'true') {
-      baseQuery += ' AND user_id = ?';
-      countQuery += ' AND user_id = ?';
-      params.push(userId);
+    // Filter by user_id if user is an employer or postedByUser is true
+    if (req.user?.role === 'employer' || postedByUser === 'true' || userId) {
+      const filterUserId = userId || authUserId;
+      if (filterUserId) {
+        baseQuery += ' AND user_id = ?';
+        countQuery += ' AND user_id = ?';
+        params.push(filterUserId);
+      }
     }
 
-    if (status && status.toLowerCase() !== 'all') {
+    // Handle status filter
+    if (statusFilter && statusFilter.toLowerCase() !== 'all') {
       baseQuery += ' AND status = ?';
       countQuery += ' AND status = ?';
-      params.push(status);
+      params.push(statusFilter);
     }
 
-    if (search) {
+    // Handle search query
+    if (searchQuery) {
       baseQuery += ' AND (title LIKE ? OR company_name LIKE ?)';
       countQuery += ' AND (title LIKE ? OR company_name LIKE ?)';
-      params.push(`%${search}%`, `%${search}%`);
+      params.push(`%${searchQuery}%`, `%${searchQuery}%`);
     }
 
     const [totalResult] = await pool.query(countQuery, params);
     const total = totalResult[0].total;
 
     const paginatedQuery = `${baseQuery} LIMIT ? OFFSET ?`;
-    const [jobs] = await pool.query(paginatedQuery, [...params, parseInt(limit), parseInt(offset)]);
+    const [jobs] = await pool.query(paginatedQuery, [...params, parseInt(jobsPerPage), parseInt(offset)]);
 
     const jobsWithParsedJSON = jobs.map((job) => ({
       ...job,
@@ -71,12 +76,12 @@ const getJobs = async (req, res) => {
       views: job.views || 0,
     }));
 
-    console.log(`GET /api/jobs: userId=${userId}, total=${total}, page=${page}, limit=${limit}`);
+    console.log(`GET /api/jobs: userId=${authUserId}, total=${total}, page=${page}, limit=${jobsPerPage}, params=${JSON.stringify(req.query)}`);
     res.json({
       jobs: jobsWithParsedJSON,
       total,
       page: parseInt(page),
-      limit: parseInt(limit),
+      limit: parseInt(jobsPerPage),
     });
   } catch (err) {
     console.error('getJobs Error:', err);
@@ -174,50 +179,13 @@ const getJobById = async (req, res) => {
   }
 };
 
-// Get applicants for a job
-const getApplicantsByJob = async (req, res) => {
-  const { id } = req.params;
-  const userId = req.user?.id;
-
-  try {
-    console.log(`getApplicantsByJob: userId=${userId}, jobId=${id}`);
-    const [job] = await pool.query(
-      'SELECT * FROM jobs WHERE id = ? AND user_id = ? AND deleted_at IS NULL',
-      [id, userId]
-    );
-    if (!job.length) {
-      console.log(`GET /api/jobs/${id}/applicants: No job found for userId=${userId}`);
-      return res.status(404).json({ error: 'Job not found', details: 'Job not found or you do not have access' });
-    }
-
-    const columns = ['id', 'fullName AS name', 'email', 'status'];
-    try {
-      await pool.query('SELECT applied_at FROM applications LIMIT 1');
-      columns.push('applied_at');
-    } catch (err) {
-      console.warn(`getApplicantsByJob: applied_at column not found, excluding from query`);
-    }
-
-    const [applicants] = await pool.query(
-      `SELECT ${columns.join(', ')} FROM applications WHERE job_id = ?`,
-      [id]
-    );
-
-    console.log(`GET /api/jobs/${id}/applicants: userId=${userId}, found ${applicants.length} applicants`);
-    res.json(applicants);
-  } catch (err) {
-    console.error(`getApplicantsByJob Error: id=${id}, error=`, err);
-    res.status(500).json({ error: 'Error fetching applicants', details: err.message });
-  }
-};
-
-// Get all applicants for employer's jobs
+// Get all applications for employer's jobs
 const getApplications = async (req, res) => {
   const userId = req.user?.id;
 
   try {
     console.log(`getApplications: userId=${userId}`);
-    const columns = ['a.id', 'a.fullName AS name', 'a.email', 'a.status', 'j.title AS jobTitle'];
+    const columns = ['a.id', 'a.fullName AS name', 'a.email', 'a.status', 'j.title AS jobTitle', 'a.job_id', 'a.candidate_id'];
     try {
       await pool.query('SELECT applied_at FROM applications LIMIT 1');
       columns.push('a.applied_at');
@@ -234,7 +202,7 @@ const getApplications = async (req, res) => {
     );
 
     console.log(`GET /api/applications: userId=${userId}, found ${applications.length} applications`);
-    res.json(applications); // Return empty array if no applications
+    res.json(applications);
   } catch (err) {
     console.error(`getApplications Error: userId=${userId}, error=`, err);
     res.status(500).json({ error: 'Error fetching applications', details: err.message });
@@ -247,7 +215,7 @@ const getInterviews = async (req, res) => {
 
   try {
     console.log(`getInterviews: userId=${userId}`);
-    const columns = ['a.id', 'a.fullName AS name', 'a.email', 'j.title AS jobTitle'];
+    const columns = ['a.id', 'a.fullName AS name', 'a.email', 'j.title AS jobTitle', 'a.job_id', 'a.candidate_id'];
     try {
       await pool.query('SELECT applied_at FROM applications LIMIT 1');
       columns.push('a.applied_at');
@@ -264,7 +232,7 @@ const getInterviews = async (req, res) => {
     );
 
     console.log(`GET /api/interviews: userId=${userId}, found ${interviews.length} interviews`);
-    res.json(interviews); // Return empty array if no interviews
+    res.json(interviews);
   } catch (err) {
     console.error(`getInterviews Error: userId=${userId}, error=`, err);
     res.status(500).json({ error: 'Error fetching interviews', details: err.message });
@@ -305,8 +273,8 @@ const getJobsByCategory = async (req, res) => {
     }
 
     const [jobs] = await pool.query(
-      'SELECT * FROM jobs WHERE JSON_CONTAINS(tags, ?) AND deleted_at IS NULL',
-      [JSON.stringify([category])]
+      'SELECT * FROM jobs WHERE category = ? AND deleted_at IS NULL',
+      [category]
     );
     const jobsWithParsedJSON = jobs.map((job) => ({
       ...job,
@@ -510,11 +478,11 @@ const getUserApplications = async (req, res) => {
   try {
     console.log(`getUserApplications: userId=${userId}, candidate_id=${candidate_id}`);
     if (req.user.role !== 'job_seeker' || parseInt(candidate_id) !== userId) {
-      console.error(`GET /api/applications: Unauthorized access for userId=${userId}, candidate_id=${candidate_id}`);
+      console.error(`GET /api/applications/user: Unauthorized access for userId=${userId}, candidate_id=${candidate_id}`);
       return res.status(403).json({ error: 'Unauthorized', details: 'You can only view your own applications' });
     }
 
-    const columns = ['id', 'job_id', 'fullName AS name', 'email', 'status'];
+    const columns = ['id', 'job_id', 'fullName AS name', 'email', 'status', 'candidate_id'];
     try {
       await pool.query('SELECT applied_at FROM applications LIMIT 1');
       columns.push('applied_at');
@@ -527,7 +495,7 @@ const getUserApplications = async (req, res) => {
       [candidate_id]
     );
 
-    console.log(`GET /api/applications: userId=${userId}, found ${applications.length} applications`);
+    console.log(`GET /api/applications/user: userId=${userId}, found ${applications.length} applications`);
     res.json(applications);
   } catch (err) {
     console.error(`getUserApplications Error: candidate_id=${candidate_id}, error=`, err);
@@ -535,29 +503,109 @@ const getUserApplications = async (req, res) => {
   }
 };
 
-// Get categories
-const getCategories = async (req, res) => {
-  try {
-    const [jobs] = await pool.query('SELECT tags FROM jobs WHERE deleted_at IS NULL');
-    const allTags = jobs
-      .flatMap((job) => {
-        try {
-          return JSON.parse(job.tags || '[]');
-        } catch {
-          return typeof job.tags === 'string' ? job.tags.split(',').map((tag) => tag.trim()) : [];
-        }
-      })
-      .filter((tag) => tag)
-      .map((tag) => tag.trim());
-    const uniqueCategories = [...new Set(allTags)];
 
-    console.log(`GET /api/jobs/categories: found ${uniqueCategories.length} categories`);
+
+ export const getCategories = async (req, res) => {
+  try {
+    const [jobs] = await pool.query('SELECT category FROM jobs WHERE deleted_at IS NULL');
+    const uniqueCategories = [...new Set(jobs.map((job) => job.category).filter((category) => category))];
+
+    console.log(`GET /api/jobs/categories: userId=${req.user?.id}, found ${uniqueCategories.length} categories`, uniqueCategories);
     res.json(uniqueCategories);
   } catch (err) {
-    console.error('getCategories Error:', err);
+    console.error('getCategories Error:', { userId: req.user?.id, error: err.message });
     res.status(500).json({ error: 'Error fetching categories', details: err.message });
   }
 };
+
+
+  export const getApplicantsByJob = async (req, res) => {
+  const { id } = req.params;
+  const userId = req.user?.id;
+
+  try {
+    // Validate jobId
+    if (!id || isNaN(Number(id))) {
+      console.error(`getApplicantsByJob: Invalid jobId=${id}, userId=${userId}`);
+      return res.status(400).json({ error: 'Invalid job ID', details: 'Job ID must be a valid number' });
+    }
+
+    console.log(`getApplicantsByJob: userId=${userId}, jobId=${id}`);
+
+    // Check if job exists and belongs to the user
+    const [job] = await pool.query(
+      'SELECT id FROM jobs WHERE id = ? AND user_id = ? AND deleted_at IS NULL',
+      [Number(id), userId]
+    );
+    if (!job.length) {
+      console.log(`GET /api/jobs/${id}/applicants: No job found for userId=${userId}, jobId=${id}`);
+      return res.status(404).json({ error: 'Job not found', details: 'Job not found or you do not have access' });
+    }
+
+    // Define columns based on applications table schema
+    const columns = [
+      'id',
+      'fullName AS name',
+      'email',
+      'status',
+      'job_id',
+      'candidate_id',
+      'phone',
+      'location',
+      'experience',
+      'jobTitle',
+      'company',
+      'qualification',
+      'specialization',
+      'university',
+      'skills',
+      'resume',
+      'coverLetter',
+      'linkedIn',
+      'portfolio',
+      'createdAt AS applied_at', // Rename createdAt to applied_at for frontend consistency
+    ];
+
+    // Fetch applicants
+    const [applicants] = await pool.query(
+      `SELECT ${columns.join(', ')} FROM applications WHERE job_id = ?`,
+      [Number(id)]
+    );
+
+    // Normalize applicant data
+    const normalizedApplicants = applicants.map((applicant) => ({
+      id: applicant.id,
+      name: applicant.name,
+      email: applicant.email,
+      status: applicant.status || 'applied',
+      job_id: applicant.job_id,
+      candidate_id: applicant.candidate_id,
+      phone: applicant.phone || null,
+      location: applicant.location || null,
+      experience: applicant.experience || null,
+      jobTitle: applicant.jobTitle || null,
+      company: applicant.company || null,
+      qualification: applicant.qualification || null,
+      specialization: applicant.specialization || null,
+      university: applicant.university || null,
+      skills: applicant.skills || null,
+      resume: applicant.resume || null,
+      coverLetter: applicant.coverLetter || null,
+      linkedIn: applicant.linkedIn || null,
+      portfolio: applicant.portfolio || null,
+      applied_at: applicant.applied_at ? new Date(applicant.applied_at).toISOString() : null,
+    }));
+
+    console.log(`GET /api/jobs/${id}/applicants: userId=${userId}, found ${normalizedApplicants.length} applicants`, normalizedApplicants);
+    res.json(normalizedApplicants);
+  } catch (err) {
+    console.error(`getApplicantsByJob Error: jobId=${id}, userId=${userId}, error=`, err.message);
+    res.status(500).json({ error: 'Error fetching applicants', details: err.message });
+  }
+};
+
+
+
 
 // Apply to a job
 const applyToJob = async (req, res) => {
@@ -680,6 +728,7 @@ const applyToJob = async (req, res) => {
     res.status(201).json({
       message: 'Application submitted successfully',
       applicationId: result.insertId,
+      jobId: jobIdNum,
     });
   } catch (err) {
     console.error(`POST /api/applications: Backend error`, err);
