@@ -29,10 +29,8 @@ export const getCategories = async (req, res) => {
       openPositions: Number(cat.openPositions) || 0,
     }));
 
-    console.log('GET /api/categories: Fetched categories', normalizedCategories);
     res.json(normalizedCategories);
   } catch (error) {
-    console.error('getCategories Error:', error.stack);
     res.status(500).json({ error: 'Failed to fetch categories', details: error.message });
   }
 };
@@ -40,6 +38,7 @@ export const getCategories = async (req, res) => {
 // GET single category by ID
 export const getCategoryById = async (req, res) => {
   const { id } = req.params;
+
   try {
     const [categories] = await pool.query(
       `
@@ -59,7 +58,6 @@ export const getCategoryById = async (req, res) => {
     );
 
     if (!categories.length) {
-      console.log(`GET /api/categories/${id}: Category not found`);
       return res.status(404).json({ error: 'Category not found' });
     }
 
@@ -72,10 +70,8 @@ export const getCategoryById = async (req, res) => {
       openPositions: Number(categories[0].openPositions) || 0,
     };
 
-    console.log(`GET /api/categories/${id}: Fetched category`, category);
     res.json(category);
   } catch (error) {
-    console.error(`getCategoryById Error (id=${id}):`, error.stack);
     res.status(500).json({ error: 'Failed to fetch category', details: error.message });
   }
 };
@@ -106,10 +102,8 @@ export const createCategory = async (req, res) => {
       openPositions: 0,
     };
 
-    console.log('POST /api/categories: Created category', newCategory);
     res.status(201).json(newCategory);
   } catch (error) {
-    console.error('createCategory Error:', error.stack);
     res.status(500).json({ error: 'Failed to create category', details: error.message });
   }
 };
@@ -133,14 +127,11 @@ export const updateCategory = async (req, res) => {
     );
 
     if (result.affectedRows === 0) {
-      console.log(`PUT /api/categories/${id}: Category not found`);
       return res.status(404).json({ error: 'Category not found' });
     }
 
-    console.log(`PUT /api/categories/${id}: Category updated`, { name, icon, bgColor, iconColor });
     res.json({ message: 'Category updated successfully' });
   } catch (error) {
-    console.error(`updateCategory Error (id=${id}):`, error.stack);
     res.status(500).json({ error: 'Failed to update category', details: error.message });
   }
 };
@@ -153,14 +144,11 @@ export const deleteCategory = async (req, res) => {
     const [result] = await pool.query(`DELETE FROM categories WHERE id = ?`, [id]);
 
     if (result.affectedRows === 0) {
-      console.log(`DELETE /api/categories/${id}: Category not found`);
       return res.status(404).json({ error: 'Category not found' });
     }
 
-    console.log(`DELETE /api/categories/${id}: Category deleted`);
     res.json({ message: 'Category deleted successfully' });
   } catch (error) {
-    console.error(`deleteCategory Error (id=${id}):`, error.stack);
     res.status(500).json({ error: 'Failed to delete category', details: error.message });
   }
 };

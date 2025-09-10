@@ -23,6 +23,7 @@ import footerRoute from './routes/footerRoute.js';
 import profileRoutes from './routes/profileRoutes.js';
 import resumeRoutes from './routes/resumeRoutes.js';
 import empRoutes from './routes/empRoutes.js';
+import subcategoryRoutes from './routes/subcategoryRoutes.js'
 
 dotenv.config();
 
@@ -50,9 +51,9 @@ const app = express();
 // Middleware
 app.use(
   cors({
-    origin: ['http://localhost:3000', 'http://localhost:5173'],
+    origin: ['http://localhost:5000', 'http://localhost:5173'],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: '*',
   })
 );
 app.use(express.json());
@@ -80,6 +81,8 @@ app.use('/api/footer', footerRoute);
 app.use('/api/profile', authenticate, profileRoutes);
 app.use('/api/resume', authenticate, resumeRoutes);
 app.use('/api/employees', authenticate, empRoutes);
+app.use('/api/subcategories', authenticate, subcategoryRoutes);
+// app.use('/api/subcategories', subcategoryRoutes);
 
 // Global error handler
 app.use((err, req, res, next) => {
