@@ -62,9 +62,6 @@ export const addCandidate = async (req, res) => {
       currentLocation, preferredLocation, resume
     ];
 
-    // Debug helper ✅ (can remove later)
-    console.log("Placeholders:", (query.match(/\?/g) || []).length);
-    console.log("Values:", values.length);
 
     const [result] = await pool.query(query, values);
     res.status(201).json({ message: "Candidate added successfully", candidateId: result.insertId });

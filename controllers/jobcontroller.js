@@ -51,7 +51,6 @@ const getJobs = async (req, res) => {
     // Get total count
     const countQuery = baseQuery.replace(/SELECT .*? FROM/, "SELECT COUNT(*) AS count FROM");
     const [totalResult] = await pool.query(countQuery, params);
-    console.log("Count Query:", countQuery, "Params:", params, "Result:", totalResult); // Debug log
     const total = totalResult[0]?.count ?? 0; // Fallback to 0 if no rows
 
     // Sorting
@@ -68,7 +67,7 @@ const getJobs = async (req, res) => {
     params.push(parseInt(limit), parseInt(offset));
 
     const [jobs] = await pool.query(baseQuery, params);
-    console.log("Jobs Query:", baseQuery, "Params:", params, "Jobs:", jobs); // Debug log
+
 
     // Parse JSON fields and format dates
     const jobsWithParsedJSON = jobs.map((job) => ({
@@ -99,6 +98,7 @@ const getJobs = async (req, res) => {
 };
 
 // In jobcontroller.js
+
 const createJob = async (req, res) => {
   const {
     title,
@@ -118,6 +118,7 @@ const createJob = async (req, res) => {
     contactPerson,
     startDate,
   } = req.body;
+
   const user_id = req.user.id;
 
   // Validate required fields
@@ -243,7 +244,9 @@ const updateJob = async (req, res) => {
 
 const deleteJob = async (req, res) => {
   const { id } = req.params;
+  console.log("id",id);
   const user_id = req.user?.id;
+  console.log("user_id",user_id);
   if (!user_id) {
     return res.status(401).json({ error: "Unauthorized: No user ID provided" });
   }

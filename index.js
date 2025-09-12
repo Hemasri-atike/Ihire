@@ -31,7 +31,7 @@ const app = express();
 app.use(cors({
   origin: ["http://localhost:3000", "http://localhost:5173"],
   methods: ["GET", "POST", "PUT", "DELETE"],
-  allowedHeaders: ["Content-Type", "Authorization"]
+  allowedHeaders: ["Content-Type", "Authorization",'Cache-Control']
 }));
 app.use(express.json()); // <-- important to parse JSON bodies
 
@@ -76,7 +76,7 @@ app.use((err, req, res, next) => {
     process.exit(1); // stop server if DB fails
   }
 })();
-
+console.log("hello")
 // Server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running at http://localhost:${PORT}`));

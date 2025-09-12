@@ -7,8 +7,9 @@ const pool = mysql.createPool({
   database: process.env.DB_NAME || "i_hire",
   port: process.env.DB_PORT || 3306,
   waitForConnections: true,
-  connectionLimit: 10,
+  connectionLimit:10000 ,
   queueLimit: 0,
+   enableKeepAlive: true
 });
 
 (async () => {
