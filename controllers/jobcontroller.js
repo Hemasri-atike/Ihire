@@ -89,6 +89,10 @@ const getJobs = async (req, res) => {
   }
 };
 
+
+
+
+
 // Get jobs posted by the user
 const getPostedJobs = async (req, res) => {
   const userId = req.user?.id;
