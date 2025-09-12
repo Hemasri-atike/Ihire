@@ -1,4 +1,4 @@
-import db from "../config/db.js";
+import pool from "../config/db.js";
 
 // Create application
 export const createApplication = async (req, res) => {
@@ -23,7 +23,7 @@ export const createApplication = async (req, res) => {
     const resume = req.file ? req.file.filename : null;
 
     // Check if application already exists
-    const [existing] = await db.execute(
+    const [existing] = await pool.execute(
       "SELECT * FROM applications WHERE email = ? AND jobTitle = ?",
       [email, jobTitle]
     );
@@ -40,7 +40,7 @@ export const createApplication = async (req, res) => {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
-    const [result] = await db.execute(query, [
+    const [result] = await pool.execute(query, [
       fullName || null,
       email || null,
       phone || null,
@@ -71,7 +71,7 @@ export const createApplication = async (req, res) => {
 // Get all applications
 export const getApplications = async (req, res) => {
   try {
-    const [rows] = await db.execute(
+    const [rows] = await pool.execute(
       "SELECT * FROM applications ORDER BY id DESC"
     );
     res.status(200).json(rows);

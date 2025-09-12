@@ -4,7 +4,7 @@ import pool from "../config/db.js";
 export const getProfile = async (req, res) => {
   try {
     const userId = req.user.id; // comes from JWT
-    const [rows] = await pool.query("SELECT id, name, email, phone, designation, company, location, about FROM users WHERE id = ?", [userId]);
+    const [rows] = await pool.query("SELECT id, name, email, mobile, designation, company, location, about FROM users WHERE id = ?", [userId]);
 
     if (rows.length === 0) {
       return res.status(404).json({ message: "Profile not found" });
@@ -23,7 +23,7 @@ export const updateProfile = async (req, res) => {
     const { name, email, phone, designation, company, location, about } = req.body;
 
     await pool.query(
-      "UPDATE users SET name=?, email=?, phone=?, designation=?, company=?, location=?, about=? WHERE id=?",
+      "UPDATE users SET name=?, email=?, mobile=?, designation=?, company=?, location=?, about=? WHERE id=?",
       [name, email, phone, designation, company, location, about, userId]
     );
 

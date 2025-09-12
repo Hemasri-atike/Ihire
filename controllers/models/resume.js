@@ -21,6 +21,11 @@ export const getResumeByUserId = async (userId) => {
       "SELECT id, title, description, technologies, link FROM projects WHERE resumeId = ?",
       [resumeId]
     );
+    const [cadexperiences] = await connection.query(
+  "SELECT id, companyName, jobTitle, duration, description, responsibilities, resumeId FROM cadexperiences WHERE resumeId = ?",
+  [resumeId]
+);
+
     const [skills] = await connection.query(
       "SELECT id, skill, proficiency FROM skills WHERE resumeId = ?",
       [resumeId]
@@ -33,6 +38,7 @@ export const getResumeByUserId = async (userId) => {
       "SELECT id, title, description FROM achievements WHERE resumeId = ?",
       [resumeId]
     );
+
 
     return {
       id: resumeId,
@@ -47,6 +53,7 @@ export const getResumeByUserId = async (userId) => {
         objective: resume.objective || ""
       }],
       education,
+      cadexperiences,
       projects,
       skills,
       certifications,
@@ -120,6 +127,7 @@ export const saveOrUpdateResume = async (userId, resumeData) => {
     // Delete old child records
     await connection.query("DELETE FROM education WHERE resumeId = ?", [resumeId]);
     await connection.query("DELETE FROM projects WHERE resumeId = ?", [resumeId]);
+    await connection.query("DELETE FROM cadexperiences WHERE resumeId = ?", [resumeId]);
     await connection.query("DELETE FROM skills WHERE resumeId = ?", [resumeId]);
     await connection.query("DELETE FROM certifications WHERE resumeId = ?", [resumeId]);
     await connection.query("DELETE FROM achievements WHERE resumeId = ?", [resumeId]);
@@ -141,6 +149,25 @@ export const saveOrUpdateResume = async (userId, resumeData) => {
         edu.id = result.insertId; // Add ID to match frontend expectations
       }
     }
+
+if (resumeData.cadexperiences?.length) {
+  for (const exp of resumeData.cadexperiences) {
+    if (!exp.company || !exp.role) continue; // Validate required fields
+    const [result] = await connection.query(
+      "INSERT INTO cadexperiences (companyName, jobTitle, duration, description, responsibilities, resumeId) VALUES (?, ?, ?, ?, ?, ?)",
+      [
+        exp.companyName || "",
+        exp.jobTitle || "",
+        exp.duration || "",
+        exp.responsibilities || "",
+        exp.description || "",
+        resumeId, // correct placement
+      ]
+    );
+    exp.id = result.insertId; // Add ID
+  }
+}
+
 
     if (resumeData.projects?.length) {
       for (const proj of resumeData.projects) {

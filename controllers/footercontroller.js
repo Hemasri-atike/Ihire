@@ -1,81 +1,64 @@
-// Simulated in-memory footer storage
-let footerData = {
-  candidates: [
-    "Browse Jobs",
-    "Browse Categories",
-    "Candidate Dashboard",
-    "Job Alerts",
-    "My Bookmarks",
-  ],
-  employers: [
-    "Browse Candidates",
-    "Employer Dashboard",
-    "Add Job",
-    "Job Packages",
-  ],
-  about: ["About Us", "Job Page Invoice", "Terms Page", "Blog", "Contact"],
+import pool from "../config/db.js"; // your MySQL connection
+
+
+
+// ✅ Post footer section
+export const createFooterSection = async (req, res) => {
+  try {
+    const { section_name, links } = req.body;
+
+    if (!section_name || !links) {
+      return res.status(400).json({ error: "section_name and links are required" });
+    }
+
+    await pool.query(
+      "INSERT INTO footer_sections (section_name, links, created_at, updated_at) VALUES (?, ?, NOW(), NOW())",
+      [section_name, JSON.stringify(links)]
+    );
+
+    res.json({ message: "Footer section created successfully" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 };
+function safeParse(value) {
+  if (typeof value === "string") {
+    try {
+      return JSON.parse(value);
+    } catch {
+      return value; // fallback if not valid JSON
+    }
+  }
+  return value; // already object/array
+}
 
 // GET /api/footer
-const getFooter = async (req, res) => {
+export const getFooter = async (req, res) => {
   try {
+    const [rows] = await pool.query("SELECT * FROM footer_sections");
+
+    const footerData = {};
+
+    // Map every row into {name, path}
+    rows.forEach((row) => {
+      let links = safeParse(row.links);
+
+      links = (Array.isArray(links) ? links : []).map((item) =>
+        typeof item === "string" ? { name: item, path: "#" } : item
+      );
+
+      footerData[row.section_name] = links;
+    });
+
     res.json({ data: footerData });
   } catch (err) {
-    res
-      .status(500)
-      .json({ error: "Error fetching footer", details: err.message });
-  }
-};
-
-// POST /api/footer -> replace entire footer object
-const createFooter = async (req, res) => {
-  try {
-    const newFooter = req.body;
-
-    if (typeof newFooter !== "object" || Array.isArray(newFooter)) {
-      return res
-        .status(400)
-        .json({ error: "Invalid payload. Provide an object with sections." });
-    }
-
-    footerData = newFooter; // replace entire footer data
-    res.json({
-      message: "Footer data replaced successfully",
-      data: footerData,
+    res.status(500).json({
+      error: "Error fetching footer",
+      details: err.message,
     });
-  } catch (err) {
-    res
-      .status(500)
-      .json({ error: "Error creating footer", details: err.message });
   }
 };
 
-// PUT /api/footer/:section -> update a specific section only
-const updateFooter = async (req, res) => {
-  try {
-    const { section } = req.params;
-    const { links } = req.body;
 
-    if (!footerData[section]) {
-      return res.status(404).json({ error: `Section '${section}' not found` });
-    }
 
-    if (!Array.isArray(links)) {
-      return res
-        .status(400)
-        .json({ error: "Invalid payload. Provide 'links' as an array." });
-    }
 
-    footerData[section] = links;
-    res.json({
-      message: `Footer section '${section}' updated successfully`,
-      data: footerData,
-    });
-  } catch (err) {
-    res
-      .status(500)
-      .json({ error: "Error updating footer", details: err.message });
-  }
-};
-
-export default { getFooter, createFooter, updateFooter };

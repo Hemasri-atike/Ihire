@@ -8,7 +8,7 @@ export const getResume = async (req, res) => {
       return res.status(401).json({ message: "User not authenticated" });
     }
 
-    console.log("👉 Fetching resume for userId:", userId);
+    // console.log("👉 Fetching resume for userId:", userId);
     const resume = await getResumeByUserId(userId);
     if (!resume) {
       return res.status(404).json({ message: "No resume found for this user" });
@@ -16,7 +16,7 @@ export const getResume = async (req, res) => {
 
     res.json(resume);
   } catch (err) {
-    console.error("❌ Error fetching resume:", err.message);
+    // console.error("❌ Error fetching resume:", err.message);
     res.status(500).json({ message: "Server error while fetching resume" });
   }
 };
