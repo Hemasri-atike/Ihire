@@ -1,6 +1,5 @@
 import pool from '../config/db.js';
 
-// GET subcategories by category_id
 export const getSubcategoriesByCategoryId = async (req, res) => {
   const { category_id } = req.query;
 
@@ -14,7 +13,6 @@ export const getSubcategoriesByCategoryId = async (req, res) => {
   }
 
   try {
-    // Verify category exists
     const [category] = await pool.query(
       `SELECT id FROM categories WHERE id = ?`,
       [categoryId]
@@ -23,7 +21,6 @@ export const getSubcategoriesByCategoryId = async (req, res) => {
       return res.status(404).json({ error: 'Category not found' });
     }
 
-    // Query with jobs join
     const sql = `
       SELECT 
         s.id,
@@ -62,7 +59,6 @@ export const getSubcategoriesByCategoryId = async (req, res) => {
   }
 };
 
-// CREATE new subcategory
 export const createSubcategory = async (req, res) => {
   const { categoryId } = req.params;
   const { name } = req.body;
@@ -110,7 +106,6 @@ export const createSubcategory = async (req, res) => {
   }
 };
 
-// UPDATE subcategory
 export const updateSubcategory = async (req, res) => {
   const { categoryId, subId } = req.params;
   const { name } = req.body;
