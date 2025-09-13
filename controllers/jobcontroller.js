@@ -476,38 +476,87 @@ const toggleJobStatus = async (req, res) => {
   }
 };
 
-// Get user applications
+
+
 const getUserApplications = async (req, res) => {
-  const { candidate_id } = req.query;
-  const userId = req.user?.id;
-
   try {
-    console.log(`getUserApplications: userId=${userId}, candidate_id=${candidate_id}`);
-    if (req.user.role !== 'job_seeker' || parseInt(candidate_id) !== userId) {
-      console.error(`GET /api/applications/user: Unauthorized access for userId=${userId}, candidate_id=${candidate_id}`);
-      return res.status(403).json({ error: 'Unauthorized', details: 'You can only view your own applications' });
+    const candidate_id = req.user?.id;
+    const { search, status, page = 1, limit = 10 } = req.query;
+
+    console.log('getUserApplications received:', {
+      user: req.user,
+      query: { search, status, page, limit },
+    });
+
+    if (!candidate_id) {
+      console.error('GET /api/jobs/user-applications: Missing candidate_id');
+      return res.status(401).json({
+        error: 'Authentication required',
+        details: 'User ID is missing',
+      });
     }
 
-    const columns = ['id', 'job_id', 'fullName AS name', 'email', 'status', 'candidate_id'];
-    try {
-      await pool.query('SELECT applied_at FROM applications LIMIT 1');
-      columns.push('applied_at');
-    } catch (err) {
-      console.warn(`getUserApplications: applied_at column not found, excluding from query`);
+    if (req.user.role !== 'job_seeker') {
+      console.error(`GET /api/jobs/user-applications: Unauthorized, user_id=${candidate_id}, role=${req.user.role}`);
+      return res.status(403).json({
+        error: 'Forbidden',
+        details: 'Only job seekers can access their applied jobs',
+      });
     }
 
-    const [applications] = await pool.query(
-      `SELECT ${columns.join(', ')} FROM applications WHERE candidate_id = ?`,
-      [candidate_id]
-    );
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+    let query = `
+      SELECT a.*, j.title, j.company_name, j.location, j.salary, j.tags
+      FROM applications a
+      JOIN jobs j ON a.job_id = j.id
+      WHERE a.candidate_id = ? AND j.deleted_at IS NULL
+    `;
+    const params = [candidate_id];
 
-    console.log(`GET /api/applications/user: userId=${userId}, found ${applications.length} applications`);
-    res.json(applications);
+    if (status && status !== 'All') {
+      query += ' AND a.status = ?';
+      params.push(status);
+    }
+
+    if (search) {
+      query += ' AND (j.title LIKE ? OR j.company_name LIKE ?)';
+      params.push(`%${search}%`, `%${search}%`);
+    }
+
+    const countQuery = `
+      SELECT COUNT(*) as total
+      FROM applications a
+      JOIN jobs j ON a.job_id = j.id
+      WHERE a.candidate_id = ? AND j.deleted_at IS NULL
+      ${status && status !== 'All' ? ' AND a.status = ?' : ''}
+      ${search ? ' AND (j.title LIKE ? OR j.company_name LIKE ?)' : ''}
+    `;
+    const countParams = status && status !== 'All' ? [candidate_id, status, ...(search ? [`%${search}%`, `%${search}%`] : [])] : [candidate_id, ...(search ? [`%${search}%`, `%${search}%`] : [])];
+
+    query += ' ORDER BY a.createdAt DESC LIMIT ? OFFSET ?';
+    params.push(parseInt(limit), offset);
+
+    const [applications] = await pool.query(query, params);
+    const [countResult] = await pool.query(countQuery, countParams);
+    const total = countResult[0].total;
+
+    console.log(`GET /api/jobs/user-applications: candidate_id=${candidate_id}, page=${page}, limit=${limit}, total=${total}, applications=`, applications);
+    res.status(200).json({
+      jobs: applications,
+      total,
+    });
   } catch (err) {
-    console.error(`getUserApplications Error: candidate_id=${candidate_id}, error=`, err);
-    res.status(500).json({ error: 'Error fetching user applications', details: err.message });
+    console.error(`GET /api/jobs/user-applications: Backend error`, err);
+    res.status(500).json({
+      error: 'Error fetching user applications',
+      details: err.message,
+    });
   }
 };
+
+
+
+
 
 // Get categories
 export const getCategories = async (req, res) => {
@@ -804,7 +853,7 @@ export default {
 };
 
 
-/////////
+
 
 
 
