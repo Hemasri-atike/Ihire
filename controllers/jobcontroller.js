@@ -1,7 +1,13 @@
-import pool from '../config/db.js';
+import  pool  from '../config/db.js'; 
 import fs from 'fs';
 import path from 'path';
 import { MulterError } from 'multer';
+
+// Ensure uploads directory exists
+const uploadsDir = path.join(process.cwd(), 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
 
 // Middleware to check if user is an employer
 const requireEmployer = (req, res, next) => {
@@ -89,10 +95,6 @@ const getJobs = async (req, res) => {
   }
 };
 
-
-
-
-
 // Get jobs posted by the user
 const getPostedJobs = async (req, res) => {
   const userId = req.user?.id;
@@ -128,7 +130,7 @@ const getPostedJobs = async (req, res) => {
     }));
 
     console.log(`GET /api/jobs/posted: userId=${userId}, found ${jobs.length} jobs`);
-    res.json(jobsWithParsedJSON); // Return empty array if no jobs
+    res.json(jobsWithParsedJSON);
   } catch (err) {
     console.error(`getPostedJobs Error: userId=${userId}, error=`, err);
     res.status(500).json({ error: 'Error fetching posted jobs', details: err.message });
@@ -507,9 +509,8 @@ const getUserApplications = async (req, res) => {
   }
 };
 
-
-
- export const getCategories = async (req, res) => {
+// Get categories
+export const getCategories = async (req, res) => {
   try {
     const [jobs] = await pool.query('SELECT category FROM jobs WHERE deleted_at IS NULL');
     const uniqueCategories = [...new Set(jobs.map((job) => job.category).filter((category) => category))];
@@ -522,13 +523,12 @@ const getUserApplications = async (req, res) => {
   }
 };
 
-
-  export const getApplicantsByJob = async (req, res) => {
+// Get applicants by job
+export const getApplicantsByJob = async (req, res) => {
   const { id } = req.params;
   const userId = req.user?.id;
 
   try {
-    // Validate jobId
     if (!id || isNaN(Number(id))) {
       console.error(`getApplicantsByJob: Invalid jobId=${id}, userId=${userId}`);
       return res.status(400).json({ error: 'Invalid job ID', details: 'Job ID must be a valid number' });
@@ -536,7 +536,6 @@ const getUserApplications = async (req, res) => {
 
     console.log(`getApplicantsByJob: userId=${userId}, jobId=${id}`);
 
-    // Check if job exists and belongs to the user
     const [job] = await pool.query(
       'SELECT id FROM jobs WHERE id = ? AND user_id = ? AND deleted_at IS NULL',
       [Number(id), userId]
@@ -546,7 +545,6 @@ const getUserApplications = async (req, res) => {
       return res.status(404).json({ error: 'Job not found', details: 'Job not found or you do not have access' });
     }
 
-    // Define columns based on applications table schema
     const columns = [
       'id',
       'fullName AS name',
@@ -567,16 +565,14 @@ const getUserApplications = async (req, res) => {
       'coverLetter',
       'linkedIn',
       'portfolio',
-      'createdAt AS applied_at', // Rename createdAt to applied_at for frontend consistency
+      'created_at AS applied_at', // Match database column name
     ];
 
-    // Fetch applicants
     const [applicants] = await pool.query(
       `SELECT ${columns.join(', ')} FROM applications WHERE job_id = ?`,
       [Number(id)]
     );
 
-    // Normalize applicant data
     const normalizedApplicants = applicants.map((applicant) => ({
       id: applicant.id,
       name: applicant.name,
@@ -600,7 +596,7 @@ const getUserApplications = async (req, res) => {
       applied_at: applicant.applied_at ? new Date(applicant.applied_at).toISOString() : null,
     }));
 
-    console.log(`GET /api/jobs/${id}/applicants: userId=${userId}, found ${normalizedApplicants.length} applicants`, normalizedApplicants);
+    console.log(`GET /api/jobs/${id}/applicants: userId=${userId}, found ${normalizedApplicants.length} applicants`);
     res.json(normalizedApplicants);
   } catch (err) {
     console.error(`getApplicantsByJob Error: jobId=${id}, userId=${userId}, error=`, err.message);
@@ -610,13 +606,12 @@ const getUserApplications = async (req, res) => {
 
 
 
-
 // Apply to a job
 const applyToJob = async (req, res) => {
+  let jobId; // Declare jobId at the top to avoid ReferenceError in catch block
   try {
+    jobId = req.params.jobId; // Extract jobId from URL params
     const {
-      job_id,
-      candidate_id,
       fullName,
       email,
       phone,
@@ -632,95 +627,129 @@ const applyToJob = async (req, res) => {
       portfolio,
       status,
     } = req.body;
+    const resume = req.files?.resume ? path.join('uploads', req.files.resume[0].filename) : null;
+    const coverLetter = req.files?.coverLetter ? path.join('uploads', req.files.coverLetter[0].filename) : null;
+    const candidate_id = req.user?.id;
 
-    const finalCandidateId = req.user?.id || candidate_id;
-    if (!finalCandidateId || req.user?.role !== 'job_seeker') {
-      console.error(`POST /api/applications: Authentication failed, user=${JSON.stringify(req.user)}`);
+    console.log('applyToJob received:', {
+      params: req.params,
+      body: req.body,
+      files: req.files,
+      user: req.user,
+    });
+
+    if (!req.user || req.user.role !== 'job_seeker') {
+      console.error(`POST /api/jobs/${jobId}/apply: Authentication failed, user=${JSON.stringify(req.user)}`);
       return res.status(401).json({
         error: 'Authentication required',
         details: 'You must be logged in as a job seeker to apply',
       });
     }
 
-    if (!job_id || !fullName || !email || !phone || !req.files?.resume) {
-      console.error(`POST /api/applications: Missing required fields, job_id=${job_id}`);
+    if (!jobId || !candidate_id || !fullName || !email || !phone || !resume) {
+      console.error(`POST /api/jobs/${jobId}/apply: Missing required fields, jobId=${jobId}, candidate_id=${candidate_id}`);
       return res.status(400).json({
         error: 'Missing required fields',
-        details: 'job_id, fullName, email, phone, and resume are required',
+        details: 'jobId, candidate_id, fullName, email, phone, and resume are required',
       });
     }
 
-    const jobIdNum = parseInt(job_id, 10);
+    const jobIdNum = parseInt(jobId, 10);
     if (isNaN(jobIdNum)) {
-      console.error(`POST /api/applications: Invalid job_id=${job_id}`);
+      console.error(`POST /api/jobs/${jobId}/apply: Invalid jobId=${jobId}`);
       return res.status(400).json({
-        error: 'Invalid job_id',
-        details: 'job_id must be a valid number',
+        error: 'Invalid job ID',
+        details: 'Job ID must be a valid number',
       });
     }
 
-    const candidateIdNum = parseInt(finalCandidateId, 10);
-    if (isNaN(candidateIdNum)) {
-      console.error(`POST /api/applications: Invalid candidate_id=${finalCandidateId}`);
+    // Do not parse candidate_id as integer since it's varchar(50)
+    if (!candidate_id) {
+      console.error(`POST /api/jobs/${jobId}/apply: Invalid candidate_id=${candidate_id}`);
       return res.status(400).json({
-        error: 'Invalid candidate_id',
-        details: 'candidate_id must be a valid number',
+        error: 'Invalid candidate ID',
+        details: 'Candidate ID must be provided',
       });
     }
 
-    const [jobExists] = await pool.query('SELECT id FROM jobs WHERE id = ? AND deleted_at IS NULL', [jobIdNum]);
+    const [jobExists] = await pool.query('SELECT id, status FROM jobs WHERE id = ? AND deleted_at IS NULL', [jobIdNum]);
     if (!jobExists.length) {
-      console.error(`POST /api/applications: Job not found, job_id=${jobIdNum}`);
+      console.error(`POST /api/jobs/${jobId}/apply: Job not found, jobId=${jobIdNum}`);
+      return res.status(404).json({
+        error: 'Job not found',
+        details: `Job with ID ${jobId} does not exist`,
+      });
+    }
+    if (jobExists[0].status !== 'Active') {
+      console.error(`POST /api/jobs/${jobId}/apply: Job inactive, jobId=${jobIdNum}`);
       return res.status(400).json({
-        error: 'Invalid job_id',
-        details: `Job with ID ${job_id} does not exist`,
+        error: 'Job is inactive',
+        details: `Job with ID ${jobId} is not accepting applications`,
       });
     }
 
-    const [userExists] = await pool.query('SELECT id FROM users WHERE id = ?', [candidateIdNum]);
+    const [userExists] = await pool.query('SELECT id FROM users WHERE id = ?', [candidate_id]);
     if (!userExists.length) {
-      console.error(`POST /api/applications: User not found, candidate_id=${candidateIdNum}`);
+      console.error(`POST /api/jobs/${jobId}/apply: User not found, candidate_id=${candidate_id}`);
       return res.status(400).json({
-        error: 'Invalid candidate_id',
-        details: `User with ID ${finalCandidateId} does not exist`,
+        error: 'Invalid candidate ID',
+        details: `User with ID ${candidate_id} does not exist`,
       });
     }
 
     const [existingApp] = await pool.query(
       'SELECT id FROM applications WHERE job_id = ? AND candidate_id = ?',
-      [jobIdNum, candidateIdNum]
+      [jobIdNum, candidate_id]
     );
     if (existingApp.length) {
-      console.error(`POST /api/applications: Duplicate application, job_id=${jobIdNum}, candidate_id=${candidateIdNum}`);
+      console.error(`POST /api/jobs/${jobId}/apply: Duplicate application, jobId=${jobIdNum}, candidate_id=${candidate_id}`);
       return res.status(400).json({
         error: 'Application already exists',
         details: 'You have already applied to this job',
       });
     }
 
-    const resume_path = req.files?.resume ? `resumes/${req.files.resume[0].filename}` : null;
-    const coverLetter_path = req.files?.coverLetter ? `coverLetters/${req.files.coverLetter[0].filename}` : null;
-
     const columns = [
-      'job_id', 'candidate_id', 'fullName', 'email', 'phone', 'location', 'experience',
-      'jobTitle', 'company', 'qualification', 'specialization', 'university', 'skills',
-      'coverLetter', 'linkedIn', 'portfolio', 'resume', 'status', 'applied_at'
+      'job_id',
+      'candidate_id',
+      'fullName',
+      'email',
+      'phone',
+      'location',
+      'experience',
+      'jobTitle',
+      'company',
+      'qualification',
+      'specialization',
+      'university',
+      'skills',
+      'resume',
+      'coverLetter',
+      'linkedIn',
+      'portfolio',
+      'status',
+      // 'createdAt' is omitted because it defaults to CURRENT_TIMESTAMP
     ];
     const values = [
-      jobIdNum, candidateIdNum, fullName, email, phone || null, location || null,
-      experience ? parseInt(experience, 10) : null, jobTitle || null, company || null,
-      qualification || null, specialization || null, university || null, skills || null,
-      coverLetter_path, linkedIn || null, portfolio || null, resume_path, status || 'applied',
-      'NOW()'
+      jobIdNum,
+      candidate_id, // Keep as string to match varchar(50)
+      fullName,
+      email,
+      phone,
+      location || null,
+      experience || null, // Schema shows varchar(10), so keep as string
+      jobTitle || null,
+      company || null,
+      qualification || null,
+      specialization || null,
+      university || null,
+      skills || null,
+      resume,
+      coverLetter || null,
+      linkedIn || null,
+      portfolio || null,
+      status || 'applied',
     ];
-
-    try {
-      await pool.query('SELECT applied_at FROM applications LIMIT 1');
-    } catch (err) {
-      console.warn(`applyToJob: applied_at column not found, excluding from insert`);
-      columns.pop(); // Remove applied_at
-      values.pop(); // Remove NOW()
-    }
 
     const placeholders = columns.map(() => '?').join(', ');
     const [result] = await pool.query(
@@ -728,14 +757,14 @@ const applyToJob = async (req, res) => {
       values
     );
 
-    console.log(`POST /api/applications: job_id=${jobIdNum}, candidate_id=${candidateIdNum}, applicationId=${result.insertId}`);
+    console.log(`POST /api/jobs/${jobId}/apply: jobId=${jobIdNum}, candidate_id=${candidate_id}, applicationId=${result.insertId}`);
     res.status(201).json({
       message: 'Application submitted successfully',
       applicationId: result.insertId,
       jobId: jobIdNum,
     });
   } catch (err) {
-    console.error(`POST /api/applications: Backend error`, err);
+    console.error(`POST /api/jobs/${jobId || 'unknown'}/apply: Backend error`, err);
     let errorDetails = err.message;
     if (err instanceof MulterError) {
       errorDetails = `File upload error: ${err.message}`;
@@ -744,8 +773,8 @@ const applyToJob = async (req, res) => {
       errorDetails = 'Invalid job_id or candidate_id. Ensure the job and user exist.';
     } else if (err.code === 'ER_DUP_ENTRY') {
       errorDetails = 'Application already exists for this job.';
-    } else if (err.code === 'ER_BAD_FIELD_ERROR' && err.sqlMessage.includes('applied_at')) {
-      errorDetails = 'Database schema error: applied_at column missing.';
+    } else if (err.code === 'ER_BAD_FIELD_ERROR') {
+      errorDetails = `Database error: ${err.sqlMessage}`;
     }
     res.status(500).json({
       error: 'Error creating application',
@@ -754,7 +783,7 @@ const applyToJob = async (req, res) => {
   }
 };
 
-// Export routes with middleware
+
 export default {
   getJobs,
   getPostedJobs: [requireEmployer, getPostedJobs],
@@ -773,3 +802,11 @@ export default {
   getInterviews: [requireEmployer, getInterviews],
   getAnalytics: [requireEmployer, getAnalytics],
 };
+
+
+/////////
+
+
+
+
+
