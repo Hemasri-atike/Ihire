@@ -34,12 +34,10 @@ export const updateResume = async (req, res) => {
     console.log("👉 Updating resume for userId:", userId);
     console.log("👉 resumeData:", JSON.stringify(resumeData, null, 2));
 
-    // Validate personalInfo
     if (!resumeData.personalInfo || !Array.isArray(resumeData.personalInfo) || resumeData.personalInfo.length !== 1) {
       return res.status(400).json({ message: "Personal Information must have exactly one entry" });
     }
 
-    // Additional validation (optional)
     const { personalInfo } = resumeData;
     if (!personalInfo[0].fullName || !personalInfo[0].email) {
       return res.status(400).json({ message: "Full Name and Email are required in Personal Information" });
