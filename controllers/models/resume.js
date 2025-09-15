@@ -12,31 +12,32 @@ export const getResumeByUserId = async (userId) => {
 
     const resume = resumeRows[0];
     const resumeId = resume.id;
+    const userID = resume.userId
 
     const [education] = await connection.query(
-      "SELECT id, degree, institution, year, percentage FROM education WHERE resumeId = ?",
-      [resumeId]
+      "SELECT id, degree, institution, year, percentage FROM education WHERE userId = ?",
+      [userID]
     );
     const [projects] = await connection.query(
-      "SELECT id, title, description, technologies, link FROM projects WHERE resumeId = ?",
-      [resumeId]
+      "SELECT id, title, description, technologies, link FROM projects WHERE userId = ?",
+      [userID]
     );
-    const [cadexperiences] = await connection.query(
-  "SELECT id, companyName, jobTitle, duration, description, responsibilities, resumeId FROM cadexperiences WHERE resumeId = ?",
-  [resumeId]
+    const [experience] = await connection.query(
+  "SELECT id, company_name, role, duration, description, location, employee_id FROM experience WHERE userId = ?",
+  [userID]
 );
 
     const [skills] = await connection.query(
-      "SELECT id, skill, proficiency FROM skills WHERE resumeId = ?",
-      [resumeId]
+      "SELECT id, skill, proficiency FROM skills WHERE userId = ?",
+      [userID]
     );
     const [certifications] = await connection.query(
-      "SELECT id, name, authority, year FROM certifications WHERE resumeId = ?",
-      [resumeId]
+      "SELECT id, name, authority, year FROM certifications WHERE userId = ?",
+      [userID]
     );
     const [achievements] = await connection.query(
-      "SELECT id, title, description FROM achievements WHERE resumeId = ?",
-      [resumeId]
+      "SELECT id, title, description FROM achievements WHERE userId = ?",
+      [userID]
     );
 
 
@@ -53,7 +54,7 @@ export const getResumeByUserId = async (userId) => {
         objective: resume.objective || ""
       }],
       education,
-      cadexperiences,
+      experience,
       projects,
       skills,
       certifications,
@@ -71,6 +72,7 @@ export const getResumeByUserId = async (userId) => {
 export const saveOrUpdateResume = async (userId, resumeData) => {
   const connection = await pool.getConnection();
   try {
+    console.log("resume.js",userId)
     await connection.beginTransaction();
 
     // Validate personalInfo
@@ -85,16 +87,19 @@ export const saveOrUpdateResume = async (userId, resumeData) => {
 
     // Check if resume exists
     const [rows] = await connection.query(
-      "SELECT id FROM resume WHERE userId = ?",
+      "SELECT id,userId FROM resume WHERE userId = ?",
       [userId]
     );
 
+    
     let resumeId;
+    let user_id = rows[0].userId
     if (rows.length > 0) {
       resumeId = rows[0].id;
+      
       // Update existing resume
       await connection.query(
-        "UPDATE resume SET fullName = ?, email = ?, phone = ?, address = ?, linkedin = ?, github = ?, objective = ? WHERE id = ?",
+        "UPDATE resume SET fullName = ?, email = ?, phone = ?, address = ?, linkedin = ?, github = ?, objective = ? WHERE id = ? AND userId = ?",
         [
           pi.fullName || "",
           pi.email || "",
@@ -104,6 +109,7 @@ export const saveOrUpdateResume = async (userId, resumeData) => {
           pi.github || "",
           pi.objective || "",
           resumeId,
+          user_id
         ]
       );
     } else {
@@ -125,21 +131,21 @@ export const saveOrUpdateResume = async (userId, resumeData) => {
     }
 
     // Delete old child records
-    await connection.query("DELETE FROM education WHERE resumeId = ?", [resumeId]);
-    await connection.query("DELETE FROM projects WHERE resumeId = ?", [resumeId]);
-    await connection.query("DELETE FROM cadexperiences WHERE resumeId = ?", [resumeId]);
-    await connection.query("DELETE FROM skills WHERE resumeId = ?", [resumeId]);
-    await connection.query("DELETE FROM certifications WHERE resumeId = ?", [resumeId]);
-    await connection.query("DELETE FROM achievements WHERE resumeId = ?", [resumeId]);
+    await connection.query("DELETE FROM education WHERE userId = ?", [user_id]);
+    await connection.query("DELETE FROM projects WHERE userId = ?", [user_id]);
+    await connection.query("DELETE FROM experience WHERE userId = ?", [user_id]);
+    await connection.query("DELETE FROM skills WHERE userId = ?", [user_id]);
+    await connection.query("DELETE FROM certifications WHERE userId = ?", [user_id]);
+    await connection.query("DELETE FROM achievements WHERE userId = ?", [user_id]);
 
     // Insert new child records
     if (resumeData.education?.length) {
       for (const edu of resumeData.education) {
         if (!edu.degree || !edu.institution) continue; // Skip invalid entries
         const [result] = await connection.query(
-          "INSERT INTO education (resumeId, degree, institution, year, percentage) VALUES (?, ?, ?, ?, ?)",
+          "INSERT INTO education (userId, degree, institution, year, percentage) VALUES (?, ?, ?, ?, ?)",
           [
-            resumeId,
+              user_id,
             edu.degree || "",
             edu.institution || "",
             edu.year || "",
@@ -150,18 +156,20 @@ export const saveOrUpdateResume = async (userId, resumeData) => {
       }
     }
 
-if (resumeData.cadexperiences?.length) {
-  for (const exp of resumeData.cadexperiences) {
-    if (!exp.company || !exp.role) continue; // Validate required fields
+if (resumeData.experience?.length) {
+  console.log("res",resumeData.experience)
+  for (const exp of resumeData.experience) {
+    if (!exp.company_name || !exp.role) continue; // Validate required fields
     const [result] = await connection.query(
-      "INSERT INTO cadexperiences (companyName, jobTitle, duration, description, responsibilities, resumeId) VALUES (?, ?, ?, ?, ?, ?)",
+      "INSERT INTO experience (company_name, role, duration, description, location, employee_id,userId) VALUES (?, ?, ?, ?, ?, ?, ?)",
       [
-        exp.companyName || "",
-        exp.jobTitle || "",
+        exp.company_name || "",
+        exp.role || "",
         exp.duration || "",
-        exp.responsibilities || "",
         exp.description || "",
-        resumeId, // correct placement
+        exp.location || "",
+        exp.employee_id, // correct placement
+       user_id
       ]
     );
     exp.id = result.insertId; // Add ID
@@ -173,9 +181,9 @@ if (resumeData.cadexperiences?.length) {
       for (const proj of resumeData.projects) {
         if (!proj.title || !proj.description) continue; // Skip invalid entries
         const [result] = await connection.query(
-          "INSERT INTO projects (resumeId, title, description, technologies, link) VALUES (?, ?, ?, ?, ?)",
+          "INSERT INTO projects (userId, title, description, technologies, link) VALUES (?, ?, ?, ?, ?)",
           [
-            resumeId,
+            user_id,
             proj.title || "",
             proj.description || "",
             proj.technologies || "",
@@ -190,8 +198,8 @@ if (resumeData.cadexperiences?.length) {
       for (const skl of resumeData.skills) {
         if (!skl.skill) continue; // Skip invalid entries
         const [result] = await connection.query(
-          "INSERT INTO skills (resumeId, skill, proficiency) VALUES (?, ?, ?)",
-          [resumeId, skl.skill || "", skl.proficiency || ""]
+          "INSERT INTO skills (userId, skill, proficiency) VALUES (?, ?, ?)",
+          [user_id, skl.skill || "", skl.proficiency || ""]
         );
         skl.id = result.insertId; // Add ID
       }
@@ -201,8 +209,8 @@ if (resumeData.cadexperiences?.length) {
       for (const cert of resumeData.certifications) {
         if (!cert.name || !cert.authority) continue; // Skip invalid entries
         const [result] = await connection.query(
-          "INSERT INTO certifications (resumeId, name, authority, year) VALUES (?, ?, ?, ?)",
-          [resumeId, cert.name || "", cert.authority || "", cert.year || ""]
+          "INSERT INTO certifications (userId, name, authority, year) VALUES (?, ?, ?, ?)",
+          [user_id, cert.name || "", cert.authority || "", cert.year || ""]
         );
         cert.id = result.insertId; // Add ID
       }
@@ -212,8 +220,8 @@ if (resumeData.cadexperiences?.length) {
       for (const ach of resumeData.achievements) {
         if (!ach.title || !ach.description) continue; // Skip invalid entries
         const [result] = await connection.query(
-          "INSERT INTO achievements (resumeId, title, description) VALUES (?, ?, ?)",
-          [resumeId, ach.title || "", ach.description || ""]
+          "INSERT INTO achievements (userId, title, description) VALUES (?, ?, ?)",
+          [user_id, ach.title || "", ach.description || ""]
         );
         ach.id = result.insertId; // Add ID
       }

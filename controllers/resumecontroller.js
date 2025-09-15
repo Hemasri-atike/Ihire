@@ -2,7 +2,8 @@ import { getResumeByUserId, saveOrUpdateResume } from "../controllers/models/res
 
 export const getResume = async (req, res) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.query.userId;
+
     if (!userId) {
       return res.status(401).json({ message: "User not authenticated" });
     }
@@ -32,7 +33,7 @@ export const updateResume = async (req, res) => {
     }
 
     console.log("👉 Updating resume for userId:", userId);
-    console.log("👉 resumeData:", JSON.stringify(resumeData, null, 2));
+
 
     if (!resumeData.personalInfo || !Array.isArray(resumeData.personalInfo) || resumeData.personalInfo.length !== 1) {
       return res.status(400).json({ message: "Personal Information must have exactly one entry" });

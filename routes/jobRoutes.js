@@ -44,7 +44,7 @@ const router = express.Router();
 
 // Job-related routes
 router.get('/categories', authenticate, jobController.getCategories);
-router.get('/', authenticate, jobController.getJobs);
+router.get('/',  jobController.getJobs);
 router.post('/', authenticate, jobController.createJob);
 router.get('/posted', authenticate, jobController.getPostedJobs);
 router.get('/:id', authenticate, jobController.getJobById);

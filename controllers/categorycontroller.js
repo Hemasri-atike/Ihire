@@ -31,6 +31,7 @@ export const getCategories = async (req, res) => {
 
     res.json(normalizedCategories);
   } catch (error) {
+    console.log("err",error)
     res.status(500).json({ error: 'Failed to fetch categories', details: error.message });
   }
 };
@@ -72,6 +73,7 @@ export const getCategoryById = async (req, res) => {
 
     res.json(category);
   } catch (error) {
+    console.log("er",error)
     res.status(500).json({ error: 'Failed to fetch category', details: error.message });
   }
 };
