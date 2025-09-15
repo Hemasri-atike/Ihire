@@ -314,26 +314,65 @@ const getJobsByCategory = async (req, res) => {
 };
 
 // Create a job
+// const createJob = async (req, res) => {
+//   const { title, company_name, description, category, status = 'Active', tags = [], salary, location } = req.body;
+//   const userId = req.user?.id;
+
+//   try {
+//     console.log(`createJob: userId=${userId}, jobData=`, req.body);
+//     if (!title || !company_name || !description || !category) {
+//       return res.status(400).json({ error: 'Missing required fields', details: 'Title, company_name, description, and category are required' });
+//     }
+
+//     const [result] = await pool.query(
+//       `INSERT INTO jobs (user_id, title, company_name, description, category, status, tags, salary, location, created_at)
+//        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+//       [userId, title, company_name, description, category, status, JSON.stringify(tags), salary, location]
+//     );
+
+//     console.log(`POST /api/jobs: Created jobId=${result.insertId} for userId=${userId}`);
+//     res.status(201).json({ jobId: result.insertId, message: 'Job created successfully' });
+//   } catch (err) {
+//     console.error('createJob Error:', err);
+//     res.status(500).json({ error: 'Error creating job', details: err.message });
+//   }
+// };
+
+
 const createJob = async (req, res) => {
-  const { title, company_name, description, category, status = 'Active', tags = [], salary, location } = req.body;
+  const { title, company_name, description, category, tags = [], salary, location } = req.body;
   const userId = req.user?.id;
+  const requestId = req.headers['x-request-id'] || Date.now(); // Use a request ID if provided
 
   try {
-    console.log(`createJob: userId=${userId}, jobData=`, req.body);
+    console.log(`createJob: requestId=${requestId}, userId=${userId}, jobData=`, req.body);
     if (!title || !company_name || !description || !category) {
       return res.status(400).json({ error: 'Missing required fields', details: 'Title, company_name, description, and category are required' });
     }
 
-    const [result] = await pool.query(
-      `INSERT INTO jobs (user_id, title, company_name, description, category, status, tags, salary, location, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
-      [userId, title, company_name, description, category, status, JSON.stringify(tags), salary, location]
+    const [existingJob] = await pool.query(
+      'SELECT id FROM jobs WHERE user_id = ? AND title = ? AND company_name = ? AND deleted_at IS NULL',
+      [userId, title, company_name]
     );
 
-    console.log(`POST /api/jobs: Created jobId=${result.insertId} for userId=${userId}`);
+    if (existingJob.length > 0) {
+      console.error(`POST /api/jobs: Duplicate job detected, requestId=${requestId}, userId=${userId}, title=${title}, company_name=${company_name}`);
+      return res.status(400).json({ error: 'Duplicate job', details: 'A job with the same title and company already exists' });
+    }
+
+    const [result] = await pool.query(
+      `INSERT INTO jobs (user_id, title, company_name, description, category, tags, salary, location, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+      [userId, title, company_name, description, category, JSON.stringify(tags), salary, location]
+    );
+
+    console.log(`POST /api/jobs: Created jobId=${result.insertId}, requestId=${requestId}, userId=${userId}`);
     res.status(201).json({ jobId: result.insertId, message: 'Job created successfully' });
   } catch (err) {
-    console.error('createJob Error:', err);
+    console.error(`createJob Error: requestId=${requestId}, userId=${userId}, error=`, err);
+    if (err.code === 'ER_DUP_ENTRY') {
+      return res.status(400).json({ error: 'Duplicate job', details: 'A job with the same title and company already exists' });
+    }
     res.status(500).json({ error: 'Error creating job', details: err.message });
   }
 };
@@ -850,6 +889,7 @@ export default {
   getCategories,
   getInterviews: [requireEmployer, getInterviews],
   getAnalytics: [requireEmployer, getAnalytics],
+   
 };
 
 

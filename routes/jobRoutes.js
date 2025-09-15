@@ -59,4 +59,5 @@ router.get('/interviews', authenticate, jobController.getInterviews);
 router.post('/:jobId/apply', authenticate, upload, jobController.applyToJob);
 router.get('/user-applications', authenticate, jobController.getUserApplications); // Added route
 
+
 export default router;
