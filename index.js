@@ -50,7 +50,7 @@ const app = express();
 
 // Middleware
 app.use(cors({
-  origin: ["http://localhost:3000", "http://localhost:5173"],
+  origin: ["http://localhost:5000", "http://localhost:5173"],
   methods: ["GET", "POST", "PUT", "DELETE"],
   allowedHeaders: ["Content-Type", "Authorization",'Cache-Control']
 }));
@@ -67,7 +67,7 @@ app.use('/api/applications', authenticate, upload.fields([
   { name: 'resume', maxCount: 1 },
   { name: 'coverLetter', maxCount: 1 },
 ]), applicationRoutes);
-app.use('/api/applicants', authenticate, applicantRoutes);
+app.use('/api', applicantRoutes);
 app.use('/api/companies', authenticate, companyRoutes);
 app.use('/api/dashboard', authenticate, dashboardRoutes);
 app.use('/api/candidates', authenticate, candidateRoutes);

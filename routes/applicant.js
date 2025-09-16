@@ -1,15 +1,19 @@
 import express from "express";
-import applicantController from "../controllers/applicantcontroller.js";
+import {
+  getApplicants,
+  createApplicant,
+  updateApplicantStatus,
+  addApplicantNote,
+  deleteApplicant,
+} from "../controllers/applicantcontroller.js";
 
 const router = express.Router();
 
-// Get all applicants
-router.get("/", applicantController.getApplicants);
-
-// Create new applicant
-router.post("/", applicantController.createApplicant);
-router.delete("/:id", applicantController.deleteApplicant);
-
-
+// Define routes without duplicating /applicants
+router.get("/applicants", getApplicants);
+router.post("/applicants", createApplicant);
+router.put("/applicants/:id/status", updateApplicantStatus);
+router.post("/applicants/:id/notes", addApplicantNote);
+router.delete("/applicants/:id", deleteApplicant);
 
 export default router;
