@@ -313,33 +313,10 @@ const getJobsByCategory = async (req, res) => {
   }
 };
 
-// Create a job
-// const createJob = async (req, res) => {
-//   const { title, company_name, description, category, status = 'Active', tags = [], salary, location } = req.body;
-//   const userId = req.user?.id;
-
-//   try {
-//     console.log(`createJob: userId=${userId}, jobData=`, req.body);
-//     if (!title || !company_name || !description || !category) {
-//       return res.status(400).json({ error: 'Missing required fields', details: 'Title, company_name, description, and category are required' });
-//     }
-
-//     const [result] = await pool.query(
-//       `INSERT INTO jobs (user_id, title, company_name, description, category, status, tags, salary, location, created_at)
-//        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
-//       [userId, title, company_name, description, category, status, JSON.stringify(tags), salary, location]
-//     );
-
-//     console.log(`POST /api/jobs: Created jobId=${result.insertId} for userId=${userId}`);
-//     res.status(201).json({ jobId: result.insertId, message: 'Job created successfully' });
-//   } catch (err) {
-//     console.error('createJob Error:', err);
-//     res.status(500).json({ error: 'Error creating job', details: err.message });
-//   }
-// };
 
 
-const createJob = async (req, res) => {
+
+export const createJob = async (req, res) => {
   const { title, company_name, description, category, tags = [], salary, location } = req.body;
   const userId = req.user?.id;
   const requestId = req.headers['x-request-id'] || Date.now(); // Use a request ID if provided
@@ -377,55 +354,98 @@ const createJob = async (req, res) => {
   }
 };
 
-// Update a job
-const updateJob = async (req, res) => {
-  const { id } = req.params;
-  const { title, description, location, salary, company_name, status, tags, recruiterActions } = req.body;
-  const userId = req.user?.id;
-
+export const updateJob = async (req, res) => {
+  let conn;
   try {
-    console.log(`updateJob: userId=${userId}, jobId=${id}, jobData=`, req.body);
-    const [job] = await pool.query(
-      'SELECT * FROM jobs WHERE id = ? AND user_id = ? AND deleted_at IS NULL',
-      [id, userId]
-    );
-    if (!job.length) {
-      console.log(`PUT /api/jobs/${id}: No job found for userId=${userId}`);
-      return res.status(404).json({ error: 'Job not found', details: 'Job not found or you do not have access' });
+    conn = await pool.getConnection();
+    if (conn.connection._closing) {
+      throw new Error('Connection is in a closed state');
     }
 
-    await pool.query(
-      `UPDATE jobs SET 
-        title = ?, 
-        description = ?, 
-        location = ?, 
-        salary = ?, 
-        company_name = ?, 
-        status = ?, 
-        tags = ?, 
-        recruiterActions = ? 
-       WHERE id = ? AND user_id = ?`,
-      [
-        title || job[0].title,
-        description || job[0].description,
-        location || job[0].location,
-        salary || job[0].salary,
-        company_name || job[0].company_name,
-        status || job[0].status,
-        JSON.stringify(tags || JSON.parse(job[0].tags || '[]')),
-        JSON.stringify(recruiterActions || JSON.parse(job[0].recruiterActions || '{"invitationSent": false, "resumeDownloaded": false}')),
-        id,
-        userId,
-      ]
-    );
+    const { id } = req.params;
+    const {
+      title,
+      company_name,
+      location,
+      description,
+      category,
+      salary,
+      type,
+      experience,
+      deadline,
+      tags,
+      status,
+      contactPerson,
+      role,
+      startDate,
+      vacancies,
+    } = req.body;
 
-    console.log(`PUT /api/jobs/${id}: userId=${userId}`);
-    res.json({ message: 'Job updated successfully' });
-  } catch (err) {
-    console.error(`updateJob Error: id=${id}, error=`, err);
-    res.status(500).json({ error: 'Error updating job', details: err.message });
+    if (!title || !company_name || !location || !description) {
+      throw new Error('Missing required fields: title, company_name, location, description');
+    }
+
+    const [[job]] = await conn.execute('SELECT * FROM jobs WHERE id = ? AND user_id = ?', [id, req.user.id]);
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found or unauthorized' });
+    }
+
+    const query = `
+      UPDATE jobs 
+      SET title = ?, company_name = ?, location = ?, description = ?, 
+          category = ?, salary = ?, type = ?, experience = ?, 
+          deadline = ?, tags = ?, status = ?, contactPerson = ?, 
+          role = ?, startDate = ?, vacancies = ?
+      WHERE id = ? AND user_id = ?
+    `;
+    const values = [
+      title.substring(0, 255),
+      company_name.substring(0, 255),
+      location.substring(0, 100),
+      description.substring(0, 5000),
+      category?.substring(0, 100) ?? null,
+      salary ? parseFloat(salary) : null,
+      type?.substring(0, 50) ?? null,
+      experience?.substring(0, 100) ?? null,
+      deadline ? new Date(deadline).toISOString().split('T')[0] : null,
+      tags ? JSON.stringify(tags) : null,
+      status?.substring(0, 50) ?? 'Draft',
+      contactPerson?.substring(0, 100) ?? null,
+      role?.substring(0, 100) ?? null,
+      startDate ? new Date(startDate).toISOString().split('T')[0] : null,
+      vacancies ? parseInt(vacancies) : null,
+      id,
+      req.user.id,
+    ];
+
+    await conn.execute(query, values);
+    res.json({ id, ...req.body, message: 'Job updated successfully' });
+  } catch (error) {
+    console.error('Error in updateJob:', {
+      message: error.message,
+      sql: error.sql,
+      sqlMessage: error.sqlMessage,
+      stack: error.stack,
+      requestData: JSON.stringify(req.body, null, 2),
+    });
+    res.status(500).json({ error: 'Failed to update job', details: error.message });
+  } finally {
+    if (conn) {
+      try {
+        conn.release();
+      } catch (releaseError) {
+        console.error('Error releasing connection:', {
+          message: releaseError.message,
+          stack: releaseError.stack,
+        });
+      }
+    }
   }
 };
+
+
+
+
 
 // Delete a job
 const deleteJob = async (req, res) => {
@@ -597,6 +617,7 @@ const getUserApplications = async (req, res) => {
 
 
 
+
 // Get categories
 export const getCategories = async (req, res) => {
   try {
@@ -693,9 +714,279 @@ export const getApplicantsByJob = async (req, res) => {
 };
 
 
+// // Apply to a job
+// export const applyToJob = async (req, res) => {
+//   let jobId;
+//   try {
+//     jobId = req.params.jobId;
+//     const {
+//       fullName,
+//       email,
+//       phone,
+//       location,
+//       experience,
+//       jobTitle,
+//       company,
+//       qualification,
+//       specialization,
+//       university,
+//       skills,
+//       linkedIn,
+//       portfolio,
+//       status,
+//     } = req.body;
+//     const resume = req.files?.resume ? path.join('uploads', req.files.resume[0].filename) : null;
+//     const coverLetter = req.files?.coverLetter ? path.join('uploads', req.files.coverLetter[0].filename) : null;
+//     const candidate_id = req.user?.id;
+
+//     console.log('applyToJob received:', {
+//       params: req.params,
+//       body: req.body,
+//       files: req.files,
+//       user: { id: req.user?.id, role: req.user?.role },
+//     });
+
+//     if (!req.user || req.user.role !== 'job_seeker') {
+//       console.error(`POST /api/jobs/${jobId}/apply: Authentication failed, user=${JSON.stringify(req.user)}`);
+//       return res.status(401).json({
+//         error: 'Authentication required',
+//         details: 'You must be logged in as a job seeker to apply',
+//       });
+//     }
+
+//     if (!jobId || !candidate_id || !fullName || !email || !phone || !resume) {
+//       console.error(`POST /api/jobs/${jobId}/apply: Missing required fields, jobId=${jobId}, candidate_id=${candidate_id}`);
+//       return res.status(400).json({
+//         error: 'Missing required fields',
+//         details: 'jobId, candidate_id, fullName, email, phone, and resume are required',
+//       });
+//     }
+
+//     const jobIdNum = parseInt(jobId, 10);
+//     if (isNaN(jobIdNum)) {
+//       console.error(`POST /api/jobs/${jobId}/apply: Invalid jobId=${jobId}`);
+//       return res.status(400).json({
+//         error: 'Invalid job ID',
+//         details: 'Job ID must be a valid number',
+//       });
+//     }
+
+//     const [jobExists] = await pool.query('SELECT id, status, title FROM jobs WHERE id = ? AND deleted_at IS NULL', [jobIdNum]);
+//     if (!jobExists.length) {
+//       console.error(`POST /api/jobs/${jobId}/apply: Job not found, jobId=${jobIdNum}`);
+//       return res.status(404).json({
+//         error: 'Job not found',
+//         details: `Job with ID ${jobId} does not exist`,
+//       });
+//     }
+//     if (jobExists[0].status !== 'Active') {
+//       console.error(`POST /api/jobs/${jobId}/apply: Job inactive, jobId=${jobIdNum}`);
+//       return res.status(400).json({
+//         error: 'Job is inactive',
+//         details: `Job with ID ${jobId} is not accepting applications`,
+//       });
+//     }
+
+//     const [userExists] = await pool.query('SELECT id FROM users WHERE id = ?', [candidate_id]);
+//     if (!userExists.length) {
+//       console.error(`POST /api/jobs/${jobId}/apply: User not found, candidate_id=${candidate_id}`);
+//       return res.status(400).json({
+//         error: 'Invalid candidate ID',
+//         details: `User with ID ${candidate_id} does not exist`,
+//       });
+//     }
+
+//     const [existingApp] = await pool.query(
+//       'SELECT id FROM applications WHERE job_id = ? AND candidate_id = ?',
+//       [jobIdNum, candidate_id]
+//     );
+//     if (existingApp.length) {
+//       console.error(`POST /api/jobs/${jobId}/apply: Duplicate application, jobId=${jobIdNum}, candidate_id=${candidate_id}`);
+//       return res.status(400).json({
+//         error: 'Application already exists',
+//         details: 'You have already applied to this job',
+//       });
+//     }
+
+//     const columns = [
+//       'job_id',
+//       'candidate_id',
+//       'fullName',
+//       'email',
+//       'phone',
+//       'location',
+//       'experience',
+//       'jobTitle',
+//       'company',
+//       'qualification',
+//       'specialization',
+//       'university',
+//       'skills',
+//       'resume',
+//       'coverLetter',
+//       'linkedIn',
+//       'portfolio',
+//       'status',
+//     ];
+//     const values = [
+//       jobIdNum,
+//       candidate_id,
+//       fullName,
+//       email,
+//       phone,
+//       location || null,
+//       experience || null,
+//       jobTitle || jobExists[0].title,
+//       company || null,
+//       qualification || null,
+//       specialization || null,
+//       university || null,
+//       skills || null,
+//       resume ? `http://localhost:5000/${resume}` : null,
+//       coverLetter ? `http://localhost:5000/${coverLetter}` : null,
+//       linkedIn || null,
+//       portfolio || null,
+//       status || 'Applied',
+//     ];
+
+//     const placeholders = columns.map(() => '?').join(', ');
+//     const [result] = await pool.query(
+//       `INSERT INTO applications (${columns.join(', ')}) VALUES (${placeholders})`,
+//       values
+//     );
+
+//     await pool.query('UPDATE jobs SET applicantCount = applicantCount + 1 WHERE id = ?', [jobIdNum]);
+
+//     console.log(`POST /api/jobs/${jobId}/apply: jobId=${jobIdNum}, candidate_id=${candidate_id}, applicationId=${result.insertId}`);
+//     res.status(201).json({
+//       message: 'Application submitted successfully',
+//       applicationId: result.insertId,
+//       jobId: jobIdNum,
+//       candidate_id,
+//       name: fullName,
+//       email,
+//       phone,
+//       position: jobTitle || jobExists[0].title,
+//       resume_url: resume ? `http://localhost:5000/${resume}` : null,
+//       cover_letter_url: coverLetter ? `http://localhost:5000/${coverLetter}` : null,
+//       status: status || 'Applied',
+//     });
+//   } catch (err) {
+//     console.error(`POST /api/jobs/${jobId || 'unknown'}/apply: Backend error`, {
+//       message: err.message,
+//       code: err.code,
+//       sql: err.sql,
+//       sqlMessage: err.sqlMessage,
+//     });
+//     let errorDetails = err.message;
+//     if (err instanceof MulterError) {
+//       errorDetails = `File upload error: ${err.message}`;
+//       return res.status(400).json({ error: 'File upload error', details: errorDetails });
+//     } else if (err.code === 'ER_NO_REFERENCED_ROW_2') {
+//       errorDetails = 'Invalid job_id or candidate_id. Ensure the job and user exist.';
+//     } else if (err.code === 'ER_DUP_ENTRY') {
+//       errorDetails = 'Application already exists for this job.';
+//     } else if (err.code === 'ER_BAD_FIELD_ERROR') {
+//       errorDetails = `Database error: ${err.sqlMessage}`;
+//     }
+//     res.status(500).json({
+//       error: 'Error creating application',
+//       details: errorDetails,
+//     });
+//   }
+// };
+
+// // Get applicants by job
+// export const getApplicantsByJob = async (req, res) => {
+//   const { id } = req.params;
+//   const { statusFilter = 'All', searchQuery = '', page = 1, perPage = 10 } = req.query;
+//   const userId = req.user?.id;
+
+//   try {
+//     if (!id || isNaN(Number(id))) {
+//       console.error(`getApplicantsByJob: Invalid jobId=${id}, userId=${userId}`);
+//       return res.status(400).json({ error: 'Invalid job ID', details: 'Job ID must be a valid number' });
+//     }
+
+//     console.log(`getApplicantsByJob: userId=${userId}, jobId=${id}, query=`, req.query);
+
+//     const [job] = await pool.query(
+//       'SELECT id FROM jobs WHERE id = ? AND user_id = ? AND deleted_at IS NULL',
+//       [Number(id), userId]
+//     );
+//     if (!job.length) {
+//       console.log(`GET /api/jobs/${id}/applicants: No job found for userId=${userId}, jobId=${id}`);
+//       return res.status(404).json({ error: 'Job not found', details: 'Job not found or you do not have access' });
+//     }
+
+//     let query = `
+//       SELECT id, job_id, candidate_id, fullName AS name, email, phone, location, experience, jobTitle AS position,
+//              company, qualification, specialization, university, skills, resume AS resume_url,
+//              coverLetter AS cover_letter_url, linkedIn, portfolio, status, createdAt AS application_date
+//       FROM applications
+//       WHERE job_id = ?
+//     `;
+//     const params = [Number(id)];
+
+//     if (statusFilter && statusFilter !== 'All') {
+//       query += ' AND status = ?';
+//       params.push(statusFilter);
+//     }
+
+//     if (searchQuery) {
+//       query += ' AND (fullName LIKE ? OR email LIKE ?)';
+//       params.push(`%${searchQuery}%`, `%${searchQuery}%`);
+//     }
+
+//     const countQuery = query.replace('SELECT *', 'SELECT COUNT(*) AS total');
+//     const [countResult] = await pool.query(countQuery, params);
+//     const total = countResult[0].total;
+
+//     query += ' ORDER BY createdAt DESC LIMIT ? OFFSET ?';
+//     params.push(parseInt(perPage), (parseInt(page) - 1) * parseInt(perPage));
+
+//     const [applicants] = await pool.query(query, params);
+
+//     const normalizedApplicants = applicants.map((applicant) => ({
+//       id: applicant.id,
+//       job_id: applicant.job_id,
+//       candidate_id: applicant.candidate_id,
+//       name: applicant.name,
+//       email: applicant.email,
+//       phone: applicant.phone || null,
+//       location: applicant.location || null,
+//       experience: applicant.experience || null,
+//       position: applicant.position || null,
+//       company: applicant.company || null,
+//       qualification: applicant.qualification || null,
+//       specialization: applicant.specialization || null,
+//       university: applicant.university || null,
+//       skills: applicant.skills || null,
+//       resume_url: applicant.resume_url ? `http://localhost:5000/${applicant.resume_url}` : null,
+//       cover_letter_url: applicant.cover_letter_url ? `http://localhost:5000/${applicant.cover_letter_url}` : null,
+//       linkedIn: applicant.linkedIn || null,
+//       portfolio: applicant.portfolio || null,
+//       status: applicant.status || 'Applied',
+//       application_date: applicant.application_date ? new Date(applicant.application_date).toISOString() : null,
+//       notes: [], // Default to empty array as per Applicants component
+//     }));
+
+//     console.log(`GET /api/jobs/${id}/applicants: userId=${userId}, jobId=${id}, total=${total}, applicants=${normalizedApplicants.length}`);
+//     res.json({ applicants: normalizedApplicants, total });
+//   } catch (err) {
+//     console.error(`getApplicantsByJob Error: jobId=${id}, userId=${userId}, error=`, {
+//       message: err.message,
+//       sql: err.sql,
+//       sqlMessage: err.sqlMessage,
+//     });
+//     res.status(500).json({ error: 'Error fetching applicants', details: err.message });
+//   }
+// };
+
+
 
 // Apply to a job
-const applyToJob = async (req, res) => {
+ export const applyToJob = async (req, res) => {
   let jobId; // Declare jobId at the top to avoid ReferenceError in catch block
   try {
     jobId = req.params.jobId; // Extract jobId from URL params
