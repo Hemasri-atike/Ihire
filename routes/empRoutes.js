@@ -17,6 +17,7 @@ import {
   addEmployeeCertification,
   deleteEmployeeCertification,
   getEmployeeCertifications,
+   updateEmployee
 } from "../controllers/empcontroller.js";
 import authenticate from "../middleware/auth.js";
 
@@ -50,5 +51,9 @@ router.delete("/:id/experience/:experienceId", authenticate, deleteEmployeeExper
 router.get("/:id/certifications", authenticate, getEmployeeCertifications);
 router.post("/:id/certifications", authenticate, addEmployeeCertification);
 router.delete("/:id/certifications/:cert_name", authenticate, deleteEmployeeCertification);
+
+
+
+router.put("/:id", authenticate, updateEmployee);
 
 export default router;

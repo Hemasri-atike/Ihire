@@ -59,6 +59,9 @@ export const createEmployee = async (req, res) => {
       [fullName, email, phone, gender, dob, location, resume, userId]
     );
 
+
+
+
     const employeeId = result.insertId;
 
     // ➕ Insert related tables (skills, education, experience, certifications) here
@@ -727,6 +730,78 @@ export const deleteEmployeeCertification = async (req, res) => {
     if (conn) conn.release();
   }
 };
+
+
+export const updateEmployee = async (req, res) => {
+  const conn = await pool.getConnection();
+  try {
+    const { id } = req.params;
+    const {
+      fullName, email, phone, gender, dob,
+      location, resume, skills = [], education = [],
+      experience = [], certifications = []
+    } = req.body;
+
+    await conn.beginTransaction();
+
+
+
+    // 1️⃣ Fetch the existing employee first
+const [[employee]] = await conn.execute(
+  "SELECT * FROM employees WHERE id = ? AND user_id = ?",
+  [id, req.user.id]
+);
+if (!employee) {
+  await conn.rollback();
+  return res.status(404).json({ error: "Employee not found" });
+}
+
+// 2️⃣ Email conflict check — IGNORE current employee's own email
+const [[existing]] = await conn.execute(
+  "SELECT id FROM employees WHERE email = ? AND id != ? AND user_id = ?",
+  [email, id, req.user.id] // 👈 `id != ?` ignores the same record
+);
+
+if (existing) {
+  await conn.rollback();
+  return res.status(400).json({
+    error: "Email already exists for another profile",
+  });
+}
+
+
+  
+  
+
+    
+
+    // ✏️ 4. Perform the update
+    await conn.execute(
+      `UPDATE employees
+       SET full_name=?, email=?, phone=?, gender=?, dob=?, location=?, resume=?
+       WHERE id=? AND user_id=?`,
+      [fullName, email, phone, gender, dob, location, resume, id, req.user.id]
+    );
+
+    await conn.commit();
+    res.json({ message: "Employee updated successfully" });
+  } catch (error) {
+    try {
+      await conn.rollback();
+    } catch (rollbackErr) {
+      console.error("Rollback failed:", rollbackErr);
+    }
+    console.error("Error in updateEmployee:", error);
+    res.status(500).json({ error: "Failed to update employee", details: error.message });
+  } finally {
+    if (conn) conn.release();
+  }
+};
+
+
+
+
+
 
 export const getEmployeeCertifications = async (req, res) => {
   let conn;
