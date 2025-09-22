@@ -79,6 +79,13 @@ app.use('/api/profile', authenticate, profileRoutes);
 app.use('/api/resume',  resumeRoutes);
 app.use('/api/employees', authenticate, empRoutes);
 app.use('/api/subcategories', authenticate, subcategoryRoutes);
+app.use('/api', applicantRoutes);
+
+
+
+
+
+
 // app.use('/api/subcategories', subcategoryRoutes);
 
 // Global error handler
