@@ -5,6 +5,7 @@ const router = express.Router();
 
 router.post("/register", userController.register);
 router.post("/login", userController.login);
-router.get("/", userController.getUsers); // Admin only
+router.get("/me", userController.getUsers); // Admin only
+router.get('/profile', userController.getProfile)
 
 export default router;
