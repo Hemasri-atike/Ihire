@@ -87,7 +87,6 @@ app.use(
 app.use(express.json());
 app.use("/uploads", express.static(path.join(__dirname, "Uploads"))); // Serve uploaded files
 
-// Test route
 app.get("/", (req, res) => res.send("Job Portal Backend running"));
 
 // Routes

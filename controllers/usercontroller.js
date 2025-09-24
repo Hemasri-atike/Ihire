@@ -28,7 +28,6 @@ const userController = {
 
       const userId = userResult.insertId;
 
-      // Create employee profile for job seekers
       let employeeId = null;
       if (role === "job_seeker" || !role) {
         const [employeeResult] = await pool.query(
@@ -99,24 +98,21 @@ async forgotPassword(req, res) {
       });
     }
 
-    // 3️⃣ Hash the new password
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-    // 4️⃣ Start transaction (optional for extra safety)
     await pool.query("START TRANSACTION");
 
-    // 5️⃣ Update password
     await pool.query("UPDATE users SET password = ? WHERE id = ?", [hashedPassword, user.id]);
 
-    // 6️⃣ Commit transaction
     await pool.query("COMMIT");
 
     return res.status(200).json({
       success: true,
       message: "Password reset successful",
+        role: user.role 
+
     });
   } catch (err) {
-    // Rollback if anything goes wrong
     try {
       await pool.query("ROLLBACK");
     } catch (rollbackErr) {
@@ -215,7 +211,6 @@ async forgotPassword(req, res) {
       const user = users[0];
       let employeeProfile = null;
 
-      // Fetch employee profile if the user is a job_seeker
       if (user.role === "job_seeker") {
         const [employeeRows] = await pool.query(
           "SELECT id, full_name, email, phone, user_id FROM employees WHERE user_id = ?",
@@ -228,7 +223,7 @@ async forgotPassword(req, res) {
 
       res.json({
         user,
-        employeeProfile, // null for employer users
+        employeeProfile,
       });
     } catch (err) {
       console.error("Error in getProfile:", err.message);
