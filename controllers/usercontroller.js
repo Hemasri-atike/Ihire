@@ -61,6 +61,77 @@ const userController = {
     }
   },
 
+async forgotPassword(req, res) {
+  const { mobile, newPassword } = req.body;
+
+  if (!mobile || !newPassword) {
+    return res.status(400).json({
+      success: false,
+      error: "Mobile number and new password are required",
+    });
+  }
+
+  if (newPassword.length < 8) {
+    return res.status(400).json({
+      success: false,
+      error: "New password must be at least 8 characters",
+    });
+  }
+
+  try {
+    // 1️⃣ Check if mobile exists
+    const [users] = await pool.query("SELECT id, password FROM users WHERE mobile = ?", [mobile]);
+    if (users.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: "Mobile number not found",
+      });
+    }
+
+    const user = users[0];
+
+    // 2️⃣ Optional: prevent using the same password
+    const isSamePassword = await bcrypt.compare(newPassword, user.password);
+    if (isSamePassword) {
+      return res.status(400).json({
+        success: false,
+        error: "New password cannot be the same as the current password",
+      });
+    }
+
+    // 3️⃣ Hash the new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // 4️⃣ Start transaction (optional for extra safety)
+    await pool.query("START TRANSACTION");
+
+    // 5️⃣ Update password
+    await pool.query("UPDATE users SET password = ? WHERE id = ?", [hashedPassword, user.id]);
+
+    // 6️⃣ Commit transaction
+    await pool.query("COMMIT");
+
+    return res.status(200).json({
+      success: true,
+      message: "Password reset successful",
+    });
+  } catch (err) {
+    // Rollback if anything goes wrong
+    try {
+      await pool.query("ROLLBACK");
+    } catch (rollbackErr) {
+      console.error("Rollback Error:", rollbackErr.message);
+    }
+
+    console.error("Forgot Password Error:", err.message);
+    res.status(500).json({
+      success: false,
+      error: "Server error during password reset",
+      details: err.message,
+    });
+  }
+},
+
   async login(req, res) {
     try {
       const { mobile, password } = req.body;
