@@ -81,7 +81,7 @@ app.use(
   cors({
     origin: ["http://localhost:5000", "http://localhost:5173"],
     methods: ["GET", "POST", "PUT", "DELETE"],
-    allowedHeaders: ["Content-Type", "Authorization", "Cache-Control"],
+   
   })
 );
 app.use(express.json());
@@ -92,7 +92,8 @@ app.get("/", (req, res) => res.send("Job Portal Backend running"));
 // Routes
 app.use("/api/header", headerRoutes);
 app.use("/api/users", userRoutes);
-app.use("/api/jobs", jobRoutes);
+app.use("/jobs", jobRoutes);
+app.use("/api/jobs", jobRoutes)
 app.use(
   "/api/applications",
   authenticate,
@@ -103,14 +104,14 @@ app.use(
   applicationRoutes
 );
 app.use("/api", applicantRoutes);
-app.use("/api/companies", authenticate, companyRoutes);
+app.use("/api/companies",  companyRoutes);
 app.use("/api/dashboard", authenticate, dashboardRoutes);
 app.use("/api/candidates", authenticate, candidateRoutes);
 app.use("/api/candidates/resume", authenticate, candidateResumeRoutes);
 app.use("/api/jobalerts", authenticate, jobAlertRoutes);
-app.use("/api/categories", categoryRoutes);
+app.use("categories", categoryRoutes);
 app.use("/api/footer", footerRoute);
-app.use("/api/profile", authenticate, profileRoutes);
+app.use("/api/profile",  profileRoutes);
 app.use("/api/resume", resumeRoutes);
 app.use("/api/employees", authenticate, empRoutes);
 app.use("/api/subcategories", authenticate, subcategoryRoutes);

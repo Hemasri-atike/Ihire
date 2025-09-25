@@ -11,16 +11,18 @@ if (!fs.existsSync(uploadsDir)) {
 
 // Middleware to check if user is an employer
 const requireEmployer = (req, res, next) => {
-  if (!req.user || !['employer', 'admin'].includes(req.user.role)) {
-    console.error(`requireEmployer: Unauthorized access, user=${JSON.stringify(req.user)}`);
-    return res.status(403).json({ error: 'Unauthorized', details: 'Only employers or admins can access this resource' });
-  }
   next();
+  // if (!req.user || !['employer', 'admin'].includes(req.user.role)) {
+  //   console.error(`requireEmployer: Unauthorized access, user=${JSON.stringify(req.user)}`);
+  //   return res.status(403).json({ error: 'Unauthorized', details: 'Only employers or admins can access this resource' });
+  // }
 };
 
 // Get all jobs (with filtering and pagination)
 const getJobs = async (req, res) => {
+  console.log("call2")
   try {
+    
     const { statusFilter = 'All', searchQuery = '', page = 1, jobsPerPage = 10, postedByUser, userId } = req.query;
     const offset = (page - 1) * jobsPerPage;
     const authUserId = req.user?.id;
@@ -139,6 +141,7 @@ const getPostedJobs = async (req, res) => {
 
 // Get job by ID
 const getJobById = async (req, res) => {
+  console.log("call")
   const { id } = req.params;
   const userId = req.user?.id;
 
@@ -632,12 +635,12 @@ export const getCategories = async (req, res) => {
 //
 
 
-export const getApplicantsByJob = async (req, res) => {
-  const jobId = req.params.id; // ✅ NOT req.params.jobId
-  const userId = req.user.id;  // from authenticate middleware
-
-  if (!jobId) {
-    return res.status(400).json({ error: "jobId is required" });
+ const getApplicantsByJob = async (req, res) => {
+  const jobId = req.params.id; 
+  const user_id = req.query.user_id;  
+console.log("sdf",user_id)
+  if (!user_id) {
+    return res.status(400).json({ error: "user_id is required" });
   }
 
   try {
@@ -647,8 +650,8 @@ export const getApplicantsByJob = async (req, res) => {
        skills, resume AS resume_url, coverLetter AS cover_letter_url, linkedIn, portfolio,
        status, createdAt AS applied_at
        FROM applications
-       WHERE job_id = ?`,
-      [jobId]
+       WHERE user_id = ?`,
+      [user_id]
     );
     res.json(rows);
   } catch (err) {
@@ -659,7 +662,7 @@ export const getApplicantsByJob = async (req, res) => {
 
 
 // Apply to a job
-export const applyToJob = async (req, res) => {
+ const applyToJob = async (req, res) => {
   const jobId = parseInt(req.params.jobId, 10);
   const candidate_id = req.user?.id;
 
@@ -715,7 +718,7 @@ export default {
   getJobs,
   getPostedJobs: [requireEmployer, getPostedJobs],
   getJobById: [requireEmployer, getJobById],
-  getApplicantsByJob: [requireEmployer, getApplicantsByJob],
+  getApplicantsByJob,
   getJobsByCategory,
   createJob: [requireEmployer, createJob],
   updateJob: [requireEmployer, updateJob],
