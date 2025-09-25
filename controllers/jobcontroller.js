@@ -693,16 +693,10 @@ export const getCategories = async (req, res) => {
 };
 
 
-//
-
-
- const getApplicantsByJob = async (req, res) => {
-  const jobId = req.params.id; 
-  const user_id = req.query.user_id;  
-console.log("sdf",user_id)
-  if (!user_id) {
-    return res.status(400).json({ error: "user_id is required" });
-  }
+const getApplicantsByJob = async (req, res) => {
+  const jobId = req.params.jobId;
+  const user_id = req.user?.id;  // get from token
+  if (!user_id) return res.status(401).json({ error: "Unauthorized" });
 
   try {
     const [rows] = await pool.query(
@@ -711,8 +705,8 @@ console.log("sdf",user_id)
        skills, resume AS resume_url, coverLetter AS cover_letter_url, linkedIn, portfolio,
        status, createdAt AS applied_at
        FROM applications
-       WHERE user_id = ?`,
-      [user_id]
+       WHERE job_id = ?`,
+      [jobId]
     );
     res.json(rows);
   } catch (err) {
@@ -720,6 +714,36 @@ console.log("sdf",user_id)
     res.status(500).json({ error: "Error fetching applicants", details: err.message });
   }
 };
+
+
+
+
+
+
+//  const getApplicantsByJob = async (req, res) => {
+//   const jobId = req.params.id; 
+//   const user_id = req.query.user_id;  
+// console.log("sdf",user_id)
+//   if (!user_id) {
+//     return res.status(400).json({ error: "user_id is required" });
+//   }
+
+//   try {
+//     const [rows] = await pool.query(
+//       `SELECT id, job_id, candidate_id, fullName AS name, email, phone, location, experience,
+//        jobTitle AS position, company, qualification, specialization, university,
+//        skills, resume AS resume_url, coverLetter AS cover_letter_url, linkedIn, portfolio,
+//        status, createdAt AS applied_at
+//        FROM applications
+//        WHERE user_id = ?`,
+//       [user_id]
+//     );
+//     res.json(rows);
+//   } catch (err) {
+//     console.error("getApplicantsByJob Error:", err);
+//     res.status(500).json({ error: "Error fetching applicants", details: err.message });
+//   }
+// };
 
 
 // Apply to a job
@@ -770,6 +794,44 @@ console.log("sdf",user_id)
   } catch (err) {
     console.error(`applyToJob Error: jobId=${jobId}, candidate_id=${candidate_id}`, err);
     res.status(500).json({ error: 'Error applying to job', details: err.message });
+  }
+};
+
+
+export const getApplicantsForEmployer = async (req, res) => {
+  try {
+    const { user_id } = req.query;
+    if (!user_id) {
+      return res.status(400).json({ error: "Missing user_id" });
+    }
+
+    // Check if this user is an employer
+    const [employer] = await pool.query("SELECT id, role FROM users WHERE id = ?", [user_id]);
+    if (!employer.length || employer[0].role !== "employer") {
+      return res.status(403).json({ error: "Unauthorized: Not an employer" });
+    }
+
+    // Get all jobs posted by this employer
+    const [jobs] = await pool.query("SELECT id, title FROM jobs WHERE user_id = ?", [user_id]);
+    if (!jobs.length) {
+      return res.json([]);
+    }
+
+    const jobIds = jobs.map(j => j.id);
+
+    // Get applicants for those jobs
+    const [applicants] = await pool.query(
+      `SELECT a.*, u.name AS full_name, u.email, u.mobile 
+       FROM applications a 
+       JOIN users u ON a.user_id = u.id
+       WHERE a.job_id IN (?)`,
+      [jobIds]
+    );
+
+    res.json(applicants);
+  } catch (err) {
+    console.error("getApplicantsForEmployer Error:", err.message);
+    res.status(500).json({ error: "Error fetching applicants", details: err.message });
   }
 };
 

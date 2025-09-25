@@ -109,7 +109,7 @@ app.use("/api/dashboard", authenticate, dashboardRoutes);
 app.use("/api/candidates", authenticate, candidateRoutes);
 app.use("/api/candidates/resume", authenticate, candidateResumeRoutes);
 app.use("/api/jobalerts", authenticate, jobAlertRoutes);
-app.use("categories", categoryRoutes);
+app.use("/api/categories", categoryRoutes);
 app.use("/api/footer", footerRoute);
 app.use("/api/profile",  profileRoutes);
 app.use("/api/resume", resumeRoutes);
