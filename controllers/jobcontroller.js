@@ -325,95 +325,120 @@ const getJobsByCategory = async (req, res) => {
   }
 };
 
+
 export const createJob = async (req, res) => {
   const {
     title,
     company_name,
-    description,
-    category,
-    type,
-    tags = [],
-    salary,
     location,
+    description,
+    category_id,
+    subcategory_id,
+    salary,
+    type,
     experience,
-    startDate,
     deadline,
+    tags,
+    status,
     contactPerson,
     role,
+    startDate,
     vacancies,
+    userId, // Optional userId from req.body
   } = req.body;
 
-  const userId = req.user?.id;
-  const requestId = req.headers["x-request-id"] || Date.now();
+  // Use provided userId, req.user.id (if authenticated), or a default system user ID
+  const defaultUserId = 1; // Replace with a valid user ID from your users table (e.g., system/admin user)
+  const jobUserId = userId || req.user?.id || defaultUserId;
+
+  // Validate required fields
+  if (!title || !company_name || !location || !description || !category_id || !type || !deadline) {
+    return res.status(400).json({ error: 'Required fields are missing' });
+  }
 
   try {
-    console.log(
-      `createJob: requestId=${requestId}, userId=${userId}, jobData=`,
-      req.body
-    );
-    if (!title || !company_name || !description || !category) {
-      return res.status(400).json({
-        error: "Missing required fields",
-        details: "Title, company_name, description, and category are required",
-      });
+    // Verify category exists
+    const [categoryResult] = await pool.query('SELECT id, name FROM categories WHERE id = ?', [category_id]);
+    if (!categoryResult.length) {
+      return res.status(400).json({ error: 'Invalid category_id' });
     }
 
-    const [existingJob] = await pool.query(
-      "SELECT id FROM jobs WHERE user_id = ? AND title = ? AND company_name = ? AND deleted_at IS NULL",
-      [userId, title, company_name]
-    );
+    let subcategoryName = null;
+    if (subcategory_id) {
+      const [subcategoryResult] = await pool.query('SELECT id, name FROM subcategories WHERE id = ? AND category_id = ?', [
+        subcategory_id,
+        category_id,
+      ]);
+      if (!subcategoryResult.length) {
+        return res.status(400).json({ error: 'Invalid subcategory_id or subcategory does not belong to the selected category' });
+      }
+      subcategoryName = subcategoryResult[0].name;
+    }
 
-    if (existingJob.length > 0) {
-      console.error(
-        `POST /api/jobs: Duplicate job detected, requestId=${requestId}, userId=${userId}, title=${title}, company_name=${company_name}`
-      );
-      return res.status(400).json({
-        error: "Duplicate job",
-        details: "A job with the same title and company already exists",
-      });
+    // Verify userId exists in users table (skip if using default or allowing null)
+    if (jobUserId) {
+      const [userResult] = await pool.query('SELECT id FROM users WHERE id = ?', [jobUserId]);
+      if (!userResult.length) {
+        return res.status(400).json({ error: 'Invalid userId: User does not exist' });
+      }
     }
 
     const [result] = await pool.query(
-      `INSERT INTO jobs 
-       (user_id, title, company_name, description, category, type, tags, salary, location, experience, startDate, deadline, contactPerson, role, vacancies, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+      `INSERT INTO jobs (
+        title, company_name, location, description, category_id, subcategory_id, salary, type, experience, deadline, tags, status, contactPerson, role, startDate, vacancies, user_id
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        userId,
         title,
         company_name,
-        description,
-        category,
-        type,
-        JSON.stringify(tags),
-        salary,
         location,
-        experience,
-        startDate,
+        description,
+        category_id,
+        subcategory_id || null,
+        salary || 0,
+        type,
+        experience || null,
         deadline,
-        contactPerson,
-        role,
-        vacancies,
+        JSON.stringify(tags || []),
+        status || 'Draft',
+        contactPerson || null,
+        role || null,
+        startDate || null,
+        vacancies || 1,
+        jobUserId,
       ]
     );
 
-    console.log(
-      `POST /api/jobs: Created jobId=${result.insertId}, requestId=${requestId}, userId=${userId}`
-    );
-    res
-      .status(201)
-      .json({ jobId: result.insertId, message: "Job created successfully" });
-  } catch (err) {
-    console.error(
-      `createJob Error: requestId=${requestId}, userId=${userId}, error=`,
-      err
-    );
-    if (err.code === "ER_DUP_ENTRY") {
-      return res.status(400).json({
-        error: "Duplicate job",
-        details: "A job with the same title and company already exists",
-      });
-    }
-    res.status(500).json({ error: "Error creating job", details: err.message });
+    const newJob = {
+      id: result.insertId,
+      title,
+      company_name,
+      location,
+      description,
+      category_id,
+      subcategory_id: subcategory_id || null,
+      category: categoryResult[0].name,
+      subcategory: subcategoryName,
+      salary: salary || 0,
+      type,
+      experience,
+      deadline,
+      tags: tags || [],
+      status: status || 'Draft',
+      contactPerson,
+      role,
+      startDate,
+      vacancies: vacancies || 1,
+      user_id: jobUserId,
+      created_at: new Date(),
+      views: 0,
+      applicantCount: 0,
+    };
+
+    console.log(`POST /api/jobs: Created job id=${result.insertId} with user_id=${jobUserId}`);
+    res.status(201).json(newJob);
+  } catch (error) {
+    console.error('createJob Error:', { userId: jobUserId, error: error.message });
+    res.status(500).json({ error: 'Failed to create job', details: error.message });
   }
 };
 
