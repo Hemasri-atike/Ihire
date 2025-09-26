@@ -35,16 +35,18 @@ const upload = multer({
 const router = express.Router();
 
 // Categories and Jobs
+router.get('/skills', jobController.getSkills);
+router.post('/skills', jobController.addSkill);
 router.get('/categories', authenticate, jobController.getCategories);
 router.get('/', jobController.getJobs);
 router.post('/', authenticate, jobController.createJob);
 router.get('/posted', authenticate, jobController.getPostedJobs);
-// router.get('/:id', authenticate, jobController.getJobById);
+router.get('/:id', authenticate, jobController.getJobById);
 router.get('/applicants',  jobController.getApplicantsByJob);
 router.get('/by-category', authenticate, jobController.getJobsByCategory);
 router.put('/:id', authenticate, jobController.updateJob);
 router.delete('/:id', authenticate, jobController.deleteJob);
-// router.post('/bulk-delete', authenticate, jobController.bulkDeleteJobs);
+router.post('/bulk-delete', authenticate, jobController.bulkDeleteJobs);
 router.patch('/:id', authenticate, jobController.toggleJobStatus);
 // router.get('/analytics', authenticate, jobController.getAnalytics);
 // router.get('/interviews', authenticate, jobController.getInterviews);

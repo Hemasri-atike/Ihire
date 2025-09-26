@@ -1,12 +1,12 @@
-import  pool  from '../config/db.js'; 
+import pool from '../config/db.js';
 import fs from 'fs';
 import path from 'path';
 import { MulterError } from 'multer';
 
 // Ensure uploads directory exists
-const uploadsDir = path.join(process.cwd(), 'uploads');
+const uploadsDir = path.join(process.cwd(), 'Uploads');
 if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
+  fs.mkdirSync(UploadsDir, { recursive: true });
 }
 
 // Middleware to check if user is an employer
@@ -20,7 +20,7 @@ const requireEmployer = (req, res, next) => {
 
 const getJobs = async (req, res) => {
   try {
-    const { statusFilter = "All", searchQuery = "", page = 1, jobsPerPage = 10, postedByUser, userId, category, subcategory_id } = req.query;
+    const { statusFilter = "All", searchQuery = "", page = 1, jobsPerPage = 10, postedByUser, userId, category_id, subcategory_id } = req.query;
     const offset = (page - 1) * jobsPerPage;
     const authUserId = req.user?.id;
 
@@ -28,7 +28,7 @@ const getJobs = async (req, res) => {
       SELECT j.*, s.name AS subcategory_name, c.name AS category_name 
       FROM jobs j 
       LEFT JOIN subcategories s ON j.subcategory_id = s.id
-      LEFT JOIN categories c ON s.category_id = c.id
+      LEFT JOIN categories c ON j.category_id = c.id
       WHERE j.deleted_at IS NULL`;
     let countQuery = "SELECT COUNT(*) as total FROM jobs WHERE deleted_at IS NULL";
     const params = [];
@@ -48,10 +48,10 @@ const getJobs = async (req, res) => {
       params.push(statusFilter);
     }
 
-    if (category) {
-      baseQuery += " AND j.category = ?";
-      countQuery += " AND category = ?";
-      params.push(category);
+    if (category_id) {
+      baseQuery += " AND j.category_id = ?";
+      countQuery += " AND category_id = ?";
+      params.push(parseInt(category_id));
     }
 
     if (subcategory_id) {
@@ -61,12 +61,12 @@ const getJobs = async (req, res) => {
     }
 
     if (searchQuery) {
-      baseQuery += " AND (j.title LIKE ? OR j.company_name LIKE ? OR s.name LIKE ?)";
-      countQuery += " AND (title LIKE ? OR company_name LIKE ?)";
-      params.push(`%${searchQuery}%`, `%${searchQuery}%`, `%${searchQuery}%`);
+      baseQuery += " AND (j.title LIKE ? OR j.company_name LIKE ? OR s.name LIKE ? OR j.skills LIKE ?)";
+      countQuery += " AND (title LIKE ? OR company_name LIKE ? OR skills LIKE ?)";
+      params.push(`%${searchQuery}%`, `%${searchQuery}%`, `%${searchQuery}%`, `%${searchQuery}%`);
     }
 
-    const [totalResult] = await pool.query(countQuery, params.slice(0, params.length - 1));
+    const [totalResult] = await pool.query(countQuery, params.slice(0, searchQuery ? params.length - 1 : params.length));
     const total = totalResult[0].total;
 
     const paginatedQuery = `${baseQuery} LIMIT ? OFFSET ?`;
@@ -74,11 +74,11 @@ const getJobs = async (req, res) => {
 
     const jobsWithParsedJSON = jobs.map((job) => ({
       ...job,
-      tags: (() => {
+      skills: (() => {
         try {
-          return JSON.parse(job.tags || "[]");
+          return JSON.parse(job.skills || "[]");
         } catch {
-          return typeof job.tags === "string" ? job.tags.split(",").map((tag) => tag.trim()) : [];
+          return typeof job.skills === "string" ? job.skills.split(",").map((skill) => skill.trim()) : [];
         }
       })(),
       recruiterActions: (() => {
@@ -92,7 +92,7 @@ const getJobs = async (req, res) => {
       applicantCount: job.applicantCount || 0,
       views: job.views || 0,
       subcategory: job.subcategory_name || null,
-      category: job.category_name || job.category || null,
+      category: job.category_name || null,
     }));
 
     console.log(`GET /api/jobs: userId=${authUserId}, total=${total}, page=${page}, limit=${jobsPerPage}, params=${JSON.stringify(req.query)}`);
@@ -117,18 +117,18 @@ const getPostedJobs = async (req, res) => {
       `SELECT j.*, s.name AS subcategory_name, c.name AS category_name 
        FROM jobs j 
        LEFT JOIN subcategories s ON j.subcategory_id = s.id
-       LEFT JOIN categories c ON s.category_id = c.id
+       LEFT JOIN categories c ON j.category_id = c.id
        WHERE j.user_id = ? AND j.deleted_at IS NULL`,
       [userId]
     );
 
     const jobsWithParsedJSON = jobs.map((job) => ({
       ...job,
-      tags: (() => {
+      skills: (() => {
         try {
-          return JSON.parse(job.tags || "[]");
+          return JSON.parse(job.skills || "[]");
         } catch {
-          return typeof job.tags === "string" ? job.tags.split(",").map((tag) => tag.trim()) : [];
+          return typeof job.skills === "string" ? job.skills.split(",").map((skill) => skill.trim()) : [];
         }
       })(),
       recruiterActions: (() => {
@@ -142,7 +142,7 @@ const getPostedJobs = async (req, res) => {
       applicantCount: job.applicantCount || 0,
       views: job.views || 0,
       subcategory: job.subcategory_name || null,
-      category: job.category_name || job.category || null,
+      category: job.category_name || null,
     }));
 
     console.log(`GET /api/jobs/posted: userId=${userId}, found ${jobs.length} jobs`);
@@ -154,14 +154,17 @@ const getPostedJobs = async (req, res) => {
 };
 
 const getJobById = async (req, res) => {
-  console.log("call")
   const { id } = req.params;
   const userId = req.user?.id;
 
   try {
     console.log(`getJobById: userId=${userId}, jobId=${id}`);
     const [jobs] = await pool.query(
-      'SELECT * FROM jobs WHERE id = ? AND user_id = ? AND deleted_at IS NULL',
+      `SELECT j.*, s.name AS subcategory_name, c.name AS category_name 
+       FROM jobs j 
+       LEFT JOIN subcategories s ON j.subcategory_id = s.id
+       LEFT JOIN categories c ON j.category_id = c.id
+       WHERE j.id = ? AND j.user_id = ? AND j.deleted_at IS NULL`,
       [id, userId]
     );
     if (!jobs.length) {
@@ -172,11 +175,11 @@ const getJobById = async (req, res) => {
     const job = jobs[0];
     const jobWithParsedJSON = {
       ...job,
-      tags: (() => {
+      skills: (() => {
         try {
-          return JSON.parse(job.tags || '[]');
+          return JSON.parse(job.skills || '[]');
         } catch {
-          return typeof job.tags === 'string' ? job.tags.split(',').map((tag) => tag.trim()) : [];
+          return typeof job.skills === 'string' ? job.skills.split(',').map((skill) => skill.trim()) : [];
         }
       })(),
       recruiterActions: (() => {
@@ -191,6 +194,8 @@ const getJobById = async (req, res) => {
       created_at: job.created_at,
       applicantCount: job.applicantCount || 0,
       views: job.views || 0,
+      subcategory: job.subcategory_name || null,
+      category: job.category_name || null,
     };
 
     console.log(`GET /api/jobs/${id}: userId=${userId}, jobId=${id}`);
@@ -285,22 +290,26 @@ const getAnalytics = async (req, res) => {
 
 const getJobsByCategory = async (req, res) => {
   try {
-    const { category } = req.query;
-    if (!category) {
-      return res.status(400).json({ error: 'Category is required', details: 'Category query parameter is missing' });
+    const { category_id } = req.query;
+    if (!category_id) {
+      return res.status(400).json({ error: 'Category ID is required', details: 'category_id query parameter is missing' });
     }
 
     const [jobs] = await pool.query(
-      'SELECT * FROM jobs WHERE category = ? AND deleted_at IS NULL',
-      [category]
+      `SELECT j.*, s.name AS subcategory_name, c.name AS category_name 
+       FROM jobs j 
+       LEFT JOIN subcategories s ON j.subcategory_id = s.id
+       LEFT JOIN categories c ON j.category_id = c.id
+       WHERE j.category_id = ? AND j.deleted_at IS NULL`,
+      [parseInt(category_id)]
     );
     const jobsWithParsedJSON = jobs.map((job) => ({
       ...job,
-      tags: (() => {
+      skills: (() => {
         try {
-          return JSON.parse(job.tags || '[]');
+          return JSON.parse(job.skills || '[]');
         } catch {
-          return typeof job.tags === 'string' ? job.tags.split(',').map((tag) => tag.trim()) : [];
+          return typeof job.skills === 'string' ? job.skills.split(',').map((skill) => skill.trim()) : [];
         }
       })(),
       recruiterActions: (() => {
@@ -315,9 +324,11 @@ const getJobsByCategory = async (req, res) => {
       created_at: job.created_at,
       applicantCount: job.applicantCount || 0,
       views: job.views || 0,
+      subcategory: job.subcategory_name || null,
+      category: job.category_name || null,
     }));
 
-    console.log(`GET /api/jobs/by-category: category=${category}, found ${jobs.length} jobs`);
+    console.log(`GET /api/jobs/by-category: category_id=${category_id}, found ${jobs.length} jobs`);
     res.json({ jobs: jobsWithParsedJSON, total: jobs.length });
   } catch (err) {
     console.error('getJobsByCategory Error:', err);
@@ -325,6 +336,34 @@ const getJobsByCategory = async (req, res) => {
   }
 };
 
+export const getSkills = async (req, res) => {
+  try {
+    console.log('GET /api/jobs/skills called'); // Debug log
+    const [skills] = await pool.query('SELECT skill FROM job_skills ORDER BY skill');
+    if (!skills || skills.length === 0) {
+      console.log('No skills found in database'); // Debug log
+      return res.status(200).json([]);
+    }
+    res.json(skills.map(s => s.skill));
+  } catch (error) {
+    console.error('Error fetching skills:', error);
+    res.status(500).json({ error: 'Failed to fetch skills', details: error.message });
+  }
+};
+
+export const addSkill = async (req, res) => {
+  const { skill } = req.body;
+  if (!skill || typeof skill !== 'string' || skill.trim() === '') {
+    return res.status(400).json({ error: 'Invalid skill', details: 'Skill must be a non-empty string' });
+  }
+  try {
+    await pool.query('INSERT INTO job_skills (skill) VALUES (?)', [skill.trim()]);
+    res.status(201).json({ message: 'Skill added successfully', skill: skill.trim() });
+  } catch (error) {
+    console.error('Error adding skill:', error);
+    res.status(500).json({ error: 'Failed to add skill', details: error.message });
+  }
+};
 
 export const createJob = async (req, res) => {
   const {
@@ -338,27 +377,25 @@ export const createJob = async (req, res) => {
     type,
     experience,
     deadline,
-    tags,
+    skills,
     status,
     contactPerson,
     role,
     startDate,
     vacancies,
-    userId, // Optional userId from req.body
+    userId,
   } = req.body;
 
-  // Use provided userId, req.user.id (if authenticated), or a default system user ID
-  const defaultUserId = 1; // Replace with a valid user ID from your users table (e.g., system/admin user)
+  const defaultUserId = 1; // Replace with a valid system user ID
   const jobUserId = userId || req.user?.id || defaultUserId;
 
-  // Validate required fields
   if (!title || !company_name || !location || !description || !category_id || !type || !deadline) {
     return res.status(400).json({ error: 'Required fields are missing' });
   }
 
   try {
-    // Verify category exists
-    const [categoryResult] = await pool.query('SELECT id, name FROM categories WHERE id = ?', [category_id]);
+    // Verify category_id
+    const [categoryResult] = await pool.query('SELECT id, name FROM categories WHERE id = ?', [parseInt(category_id)]);
     if (!categoryResult.length) {
       return res.status(400).json({ error: 'Invalid category_id' });
     }
@@ -366,8 +403,8 @@ export const createJob = async (req, res) => {
     let subcategoryName = null;
     if (subcategory_id) {
       const [subcategoryResult] = await pool.query('SELECT id, name FROM subcategories WHERE id = ? AND category_id = ?', [
-        subcategory_id,
-        category_id,
+        parseInt(subcategory_id),
+        parseInt(category_id),
       ]);
       if (!subcategoryResult.length) {
         return res.status(400).json({ error: 'Invalid subcategory_id or subcategory does not belong to the selected category' });
@@ -375,7 +412,17 @@ export const createJob = async (req, res) => {
       subcategoryName = subcategoryResult[0].name;
     }
 
-    // Verify userId exists in users table (skip if using default or allowing null)
+    // Validate skills against job_skills table
+    if (skills && Array.isArray(skills)) {
+      const [validSkills] = await pool.query('SELECT skill FROM job_skills WHERE skill IN (?)', [skills]);
+      const validSkillNames = validSkills.map(s => s.skill);
+      const invalidSkills = skills.filter(s => !validSkillNames.includes(s));
+      if (invalidSkills.length > 0) {
+        return res.status(400).json({ error: 'Invalid skills', details: `Skills not found in database: ${invalidSkills.join(', ')}` });
+      }
+    }
+
+    // Verify userId exists
     if (jobUserId) {
       const [userResult] = await pool.query('SELECT id FROM users WHERE id = ?', [jobUserId]);
       if (!userResult.length) {
@@ -385,25 +432,25 @@ export const createJob = async (req, res) => {
 
     const [result] = await pool.query(
       `INSERT INTO jobs (
-        title, company_name, location, description, category_id, subcategory_id, salary, type, experience, deadline, tags, status, contactPerson, role, startDate, vacancies, user_id
+        title, company_name, location, description, category_id, subcategory_id, salary, type, experience, deadline, skills, status, contactPerson, role, startDate, vacancies, user_id
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        title,
-        company_name,
-        location,
-        description,
-        category_id,
-        subcategory_id || null,
-        salary || 0,
-        type,
-        experience || null,
-        deadline,
-        JSON.stringify(tags || []),
-        status || 'Draft',
-        contactPerson || null,
-        role || null,
-        startDate || null,
-        vacancies || 1,
+        title.substring(0, 255),
+        company_name.substring(0, 255),
+        location.substring(0, 100),
+        description.substring(0, 5000),
+        parseInt(category_id),
+        subcategory_id ? parseInt(subcategory_id) : null,
+        salary ? parseFloat(salary) : 0,
+        type?.substring(0, 50) ?? null,
+        experience?.substring(0, 100) ?? null,
+        deadline ? new Date(deadline).toISOString().split("T")[0] : null,
+        JSON.stringify(skills || []),
+        status?.substring(0, 50) ?? 'Draft',
+        contactPerson?.substring(0, 100) ?? null,
+        role?.substring(0, 100) ?? null,
+        startDate ? new Date(startDate).toISOString().split("T")[0] : null,
+        vacancies ? parseInt(vacancies) : 1,
         jobUserId,
       ]
     );
@@ -414,15 +461,15 @@ export const createJob = async (req, res) => {
       company_name,
       location,
       description,
-      category_id,
-      subcategory_id: subcategory_id || null,
+      category_id: parseInt(category_id),
+      subcategory_id: subcategory_id ? parseInt(subcategory_id) : null,
       category: categoryResult[0].name,
       subcategory: subcategoryName,
-      salary: salary || 0,
+      salary: salary ? parseFloat(salary) : 0,
       type,
       experience,
       deadline,
-      tags: tags || [],
+      skills: skills || [],
       status: status || 'Draft',
       contactPerson,
       role,
@@ -456,12 +503,13 @@ export const updateJob = async (req, res) => {
       company_name,
       location,
       description,
-      category,
+      category_id,
+      subcategory_id,
       salary,
       type,
       experience,
       deadline,
-      tags,
+      skills,
       status,
       contactPerson,
       role,
@@ -469,25 +517,49 @@ export const updateJob = async (req, res) => {
       vacancies,
     } = req.body;
 
-    if (!title || !company_name || !location || !description) {
-      throw new Error(
-        "Missing required fields: title, company_name, location, description"
-      );
+    if (!title || !company_name || !location || !description || !category_id || !type || !deadline) {
+      return res.status(400).json({ error: "Missing required fields", details: "title, company_name, location, description, category_id, type, deadline are required" });
     }
 
     const [[job]] = await conn.execute(
-      "SELECT * FROM jobs WHERE id = ? AND user_id = ?",
-      [id, req.user.id]
+      "SELECT * FROM jobs WHERE id = ? AND user_id = ? AND deleted_at IS NULL",
+      [id, req.user?.id || 1] 
     );
     if (!job) {
       return res.status(404).json({ error: "Job not found or unauthorized" });
     }
 
+    const [categoryResult] = await conn.query('SELECT id, name FROM categories WHERE id = ?', [parseInt(category_id)]);
+    if (!categoryResult.length) {
+      return res.status(400).json({ error: 'Invalid category_id' });
+    }
+
+    let subcategoryName = null;
+    if (subcategory_id) {
+      const [subcategoryResult] = await conn.query('SELECT id, name FROM subcategories WHERE id = ? AND category_id = ?', [
+        parseInt(subcategory_id),
+        parseInt(category_id),
+      ]);
+      if (!subcategoryResult.length) {
+        return res.status(400).json({ error: 'Invalid subcategory_id or subcategory does not belong to the selected category' });
+      }
+      subcategoryName = subcategoryResult[0].name;
+    }
+
+    if (skills && Array.isArray(skills)) {
+      const [validSkills] = await conn.query('SELECT skill FROM job_skills WHERE skill IN (?)', [skills]);
+      const validSkillNames = validSkills.map(s => s.skill);
+      const invalidSkills = skills.filter(s => !validSkillNames.includes(s));
+      if (invalidSkills.length > 0) {
+        return res.status(400).json({ error: 'Invalid skills', details: `Skills not found in database: ${invalidSkills.join(', ')}` });
+      }
+    }
+
     const query = `
       UPDATE jobs 
       SET title = ?, company_name = ?, location = ?, description = ?, 
-          category = ?, salary = ?, type = ?, experience = ?, 
-          deadline = ?, tags = ?, status = ?, contactPerson = ?, 
+          category_id = ?, subcategory_id = ?, salary = ?, type = ?, experience = ?, 
+          deadline = ?, skills = ?, status = ?, contactPerson = ?, 
           role = ?, startDate = ?, vacancies = ?
       WHERE id = ? AND user_id = ?
     `;
@@ -496,23 +568,52 @@ export const updateJob = async (req, res) => {
       company_name.substring(0, 255),
       location.substring(0, 100),
       description.substring(0, 5000),
-      category?.substring(0, 100) ?? null,
-      salary ? parseFloat(salary) : null,
+      parseInt(category_id),
+      subcategory_id ? parseInt(subcategory_id) : null,
+      salary ? parseFloat(salary) : 0,
       type?.substring(0, 50) ?? null,
       experience?.substring(0, 100) ?? null,
       deadline ? new Date(deadline).toISOString().split("T")[0] : null,
-      tags ? JSON.stringify(tags) : null,
+      skills ? JSON.stringify(skills) : JSON.stringify([]),
       status?.substring(0, 50) ?? "Draft",
       contactPerson?.substring(0, 100) ?? null,
       role?.substring(0, 100) ?? null,
       startDate ? new Date(startDate).toISOString().split("T")[0] : null,
-      vacancies ? parseInt(vacancies) : null,
+      vacancies ? parseInt(vacancies) : 1,
       id,
-      req.user.id,
+      req.user?.id || 1, // Fallback to default user ID
     ];
 
     await conn.execute(query, values);
-    res.json({ id, ...req.body, message: "Job updated successfully" });
+
+    const updatedJob = {
+      id,
+      title,
+      company_name,
+      location,
+      description,
+      category_id: parseInt(category_id),
+      subcategory_id: subcategory_id ? parseInt(subcategory_id) : null,
+      category: categoryResult[0].name,
+      subcategory: subcategoryName,
+      salary: salary ? parseFloat(salary) : 0,
+      type,
+      experience,
+      deadline,
+      skills: skills || [],
+      status,
+      contactPerson,
+      role,
+      startDate,
+      vacancies: vacancies || 1,
+      user_id: req.user?.id || 1,
+      created_at: job.created_at,
+      views: job.views || 0,
+      applicantCount: job.applicantCount || 0,
+    };
+
+    console.log(`PUT /api/jobs/${id}: userId=${req.user?.id || 1}, updated jobId=${id}`);
+    res.json(updatedJob);
   } catch (error) {
     console.error("Error in updateJob:", {
       message: error.message,
@@ -521,9 +622,7 @@ export const updateJob = async (req, res) => {
       stack: error.stack,
       requestData: JSON.stringify(req.body, null, 2),
     });
-    res
-      .status(500)
-      .json({ error: "Failed to update job", details: error.message });
+    res.status(500).json({ error: "Failed to update job", details: error.message });
   } finally {
     if (conn) {
       try {
@@ -540,7 +639,7 @@ export const updateJob = async (req, res) => {
 
 const deleteJob = async (req, res) => {
   const { id } = req.params;
-  const userId = req.user?.id;
+  const userId = req.user?.id || 1;
 
   try {
     console.log(`deleteJob: userId=${userId}, jobId=${id}`);
@@ -564,7 +663,7 @@ const deleteJob = async (req, res) => {
 
 const bulkDeleteJobs = async (req, res) => {
   const { jobIds } = req.body;
-  const userId = req.user?.id;
+  const userId = req.user?.id || 1;
 
   try {
     console.log(`bulkDeleteJobs: userId=${userId}, jobIds=`, jobIds);
@@ -593,11 +692,10 @@ const bulkDeleteJobs = async (req, res) => {
   }
 };
 
-// Toggle job status
 const toggleJobStatus = async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
-  const userId = req.user?.id;
+  const userId = req.user?.id || 1;
 
   try {
     console.log(`toggleJobStatus: userId=${userId}, jobId=${id}, newStatus=${status}`);
@@ -623,8 +721,6 @@ const toggleJobStatus = async (req, res) => {
     res.status(500).json({ error: 'Error updating job status', details: err.message });
   }
 };
-
-
 
 const getUserApplications = async (req, res) => {
   try {
@@ -654,7 +750,7 @@ const getUserApplications = async (req, res) => {
 
     const offset = (parseInt(page) - 1) * parseInt(limit);
     let query = `
-      SELECT a.*, j.title, j.company_name, j.location, j.salary, j.tags
+      SELECT a.*, j.title, j.company_name, j.location, j.salary, j.skills
       FROM applications a
       JOIN jobs j ON a.job_id = j.id
       WHERE a.candidate_id = ? AND j.deleted_at IS NULL
@@ -667,8 +763,8 @@ const getUserApplications = async (req, res) => {
     }
 
     if (search) {
-      query += ' AND (j.title LIKE ? OR j.company_name LIKE ?)';
-      params.push(`%${search}%`, `%${search}%`);
+      query += ' AND (j.title LIKE ? OR j.company_name LIKE ? OR j.skills LIKE ?)';
+      params.push(`%${search}%`, `%${search}%`, `%${search}%`);
     }
 
     const countQuery = `
@@ -677,9 +773,9 @@ const getUserApplications = async (req, res) => {
       JOIN jobs j ON a.job_id = j.id
       WHERE a.candidate_id = ? AND j.deleted_at IS NULL
       ${status && status !== 'All' ? ' AND a.status = ?' : ''}
-      ${search ? ' AND (j.title LIKE ? OR j.company_name LIKE ?)' : ''}
+      ${search ? ' AND (j.title LIKE ? OR j.company_name LIKE ? OR j.skills LIKE ?)' : ''}
     `;
-    const countParams = status && status !== 'All' ? [candidate_id, status, ...(search ? [`%${search}%`, `%${search}%`] : [])] : [candidate_id, ...(search ? [`%${search}%`, `%${search}%`] : [])];
+    const countParams = status && status !== 'All' ? [candidate_id, status, ...(search ? [`%${search}%`, `%${search}%`, `%${search}%`] : [])] : [candidate_id, ...(search ? [`%${search}%`, `%${search}%`, `%${search}%`] : [])];
 
     query += ' ORDER BY a.createdAt DESC LIMIT ? OFFSET ?';
     params.push(parseInt(limit), offset);
@@ -688,9 +784,20 @@ const getUserApplications = async (req, res) => {
     const [countResult] = await pool.query(countQuery, countParams);
     const total = countResult[0].total;
 
-    console.log(`GET /api/jobs/user-applications: candidate_id=${candidate_id}, page=${page}, limit=${limit}, total=${total}, applications=`, applications);
+    const applicationsWithParsedJSON = applications.map((app) => ({
+      ...app,
+      skills: (() => {
+        try {
+          return JSON.parse(app.skills || '[]');
+        } catch {
+          return typeof app.skills === 'string' ? app.skills.split(',').map((skill) => skill.trim()) : [];
+        }
+      })(),
+    }));
+
+    console.log(`GET /api/jobs/user-applications: candidate_id=${candidate_id}, page=${page}, limit=${limit}, total=${total}`);
     res.status(200).json({
-      jobs: applications,
+      jobs: applicationsWithParsedJSON,
       total,
     });
   } catch (err) {
@@ -702,28 +809,32 @@ const getUserApplications = async (req, res) => {
   }
 };
 
-
-// Get categories
-export const getCategories = async (req, res) => {
+const getCategories = async (req, res) => {
   try {
-    const [jobs] = await pool.query('SELECT category FROM jobs WHERE deleted_at IS NULL');
-    const uniqueCategories = [...new Set(jobs.map((job) => job.category).filter((category) => category))];
-
-    console.log(`GET /api/jobs/categories: userId=${req.user?.id}, found ${uniqueCategories.length} categories`, uniqueCategories);
-    res.json(uniqueCategories);
+    const [categories] = await pool.query('SELECT id, name FROM categories');
+    console.log(`GET /api/jobs/categories: userId=${req.user?.id}, found ${categories.length} categories`);
+    res.json(categories);
   } catch (err) {
     console.error('getCategories Error:', { userId: req.user?.id, error: err.message });
     res.status(500).json({ error: 'Error fetching categories', details: err.message });
   }
 };
 
-
 const getApplicantsByJob = async (req, res) => {
   const jobId = req.params.jobId;
-  const user_id = req.user?.id;  // get from token
-  if (!user_id) return res.status(401).json({ error: "Unauthorized" });
+  const userId = req.user?.id || 1;
 
   try {
+    console.log(`getApplicantsByJob: userId=${userId}, jobId=${jobId}`);
+    const [job] = await pool.query(
+      'SELECT id FROM jobs WHERE id = ? AND user_id = ? AND deleted_at IS NULL',
+      [jobId, userId]
+    );
+    if (!job.length) {
+      console.log(`GET /api/jobs/${jobId}/applicants: No job found for userId=${userId}`);
+      return res.status(404).json({ error: 'Job not found', details: 'Job not found or you do not have access' });
+    }
+
     const [rows] = await pool.query(
       `SELECT id, job_id, candidate_id, fullName AS name, email, phone, location, experience,
        jobTitle AS position, company, qualification, specialization, university,
@@ -733,46 +844,27 @@ const getApplicantsByJob = async (req, res) => {
        WHERE job_id = ?`,
       [jobId]
     );
-    res.json(rows);
+
+    const applicantsWithParsedJSON = rows.map((app) => ({
+      ...app,
+      skills: (() => {
+        try {
+          return JSON.parse(app.skills || '[]');
+        } catch {
+          return typeof app.skills === 'string' ? app.skills.split(',').map((skill) => skill.trim()) : [];
+        }
+      })(),
+    }));
+
+    console.log(`GET /api/jobs/${jobId}/applicants: userId=${userId}, found ${rows.length} applicants`);
+    res.json(applicantsWithParsedJSON);
   } catch (err) {
     console.error("getApplicantsByJob Error:", err);
     res.status(500).json({ error: "Error fetching applicants", details: err.message });
   }
 };
 
-
-
-
-
-
-//  const getApplicantsByJob = async (req, res) => {
-//   const jobId = req.params.id; 
-//   const user_id = req.query.user_id;  
-// console.log("sdf",user_id)
-//   if (!user_id) {
-//     return res.status(400).json({ error: "user_id is required" });
-//   }
-
-//   try {
-//     const [rows] = await pool.query(
-//       `SELECT id, job_id, candidate_id, fullName AS name, email, phone, location, experience,
-//        jobTitle AS position, company, qualification, specialization, university,
-//        skills, resume AS resume_url, coverLetter AS cover_letter_url, linkedIn, portfolio,
-//        status, createdAt AS applied_at
-//        FROM applications
-//        WHERE user_id = ?`,
-//       [user_id]
-//     );
-//     res.json(rows);
-//   } catch (err) {
-//     console.error("getApplicantsByJob Error:", err);
-//     res.status(500).json({ error: "Error fetching applicants", details: err.message });
-//   }
-// };
-
-
-// Apply to a job
- const applyToJob = async (req, res) => {
+const applyToJob = async (req, res) => {
   const jobId = parseInt(req.params.jobId, 10);
   const candidate_id = req.user?.id;
 
@@ -794,8 +886,8 @@ const getApplicantsByJob = async (req, res) => {
     );
     if (existingApp.length) return res.status(400).json({ error: 'Application already exists' });
 
-    const resume = req.files?.resume ? path.join('uploads', req.files.resume[0].filename) : null;
-    const coverLetter = req.files?.coverLetter ? path.join('uploads', req.files.coverLetter[0].filename) : null;
+    const resume = req.files?.resume ? path.join('Uploads', req.files.resume[0].filename) : null;
+    const coverLetter = req.files?.coverLetter ? path.join('Uploads', req.files.coverLetter[0].filename) : null;
 
     const columns = [
       'job_id', 'candidate_id', 'fullName', 'email', 'phone', 'location', 'experience',
@@ -815,6 +907,7 @@ const getApplicantsByJob = async (req, res) => {
 
     await pool.query('UPDATE jobs SET applicantCount = applicantCount + 1 WHERE id = ?', [jobId]);
 
+    console.log(`POST /api/jobs/${jobId}/apply: candidate_id=${candidate_id}, applicationId=${result.insertId}`);
     res.status(201).json({ message: 'Application submitted successfully', applicationId: result.insertId });
   } catch (err) {
     console.error(`applyToJob Error: jobId=${jobId}, candidate_id=${candidate_id}`, err);
@@ -822,22 +915,23 @@ const getApplicantsByJob = async (req, res) => {
   }
 };
 
-
 export const getApplicantsForEmployer = async (req, res) => {
   try {
     const { user_id } = req.query;
+    const authUserId = req.user?.id || 1;
+
     if (!user_id) {
       return res.status(400).json({ error: "Missing user_id" });
     }
 
-    // Check if this user is an employer
+    // Check if this user is an employer (optional since requireEmployer is commented out)
     const [employer] = await pool.query("SELECT id, role FROM users WHERE id = ?", [user_id]);
     if (!employer.length || employer[0].role !== "employer") {
       return res.status(403).json({ error: "Unauthorized: Not an employer" });
     }
 
     // Get all jobs posted by this employer
-    const [jobs] = await pool.query("SELECT id, title FROM jobs WHERE user_id = ?", [user_id]);
+    const [jobs] = await pool.query("SELECT id, title FROM jobs WHERE user_id = ? AND deleted_at IS NULL", [user_id]);
     if (!jobs.length) {
       return res.json([]);
     }
@@ -848,19 +942,29 @@ export const getApplicantsForEmployer = async (req, res) => {
     const [applicants] = await pool.query(
       `SELECT a.*, u.name AS full_name, u.email, u.mobile 
        FROM applications a 
-       JOIN users u ON a.user_id = u.id
+       JOIN users u ON a.candidate_id = u.id
        WHERE a.job_id IN (?)`,
       [jobIds]
     );
 
-    res.json(applicants);
+    const applicantsWithParsedJSON = applicants.map((app) => ({
+      ...app,
+      skills: (() => {
+        try {
+          return JSON.parse(app.skills || '[]');
+        } catch {
+          return typeof app.skills === 'string' ? app.skills.split(',').map((skill) => skill.trim()) : [];
+        }
+      })(),
+    }));
+
+    console.log(`GET /api/jobs/applicants-for-employer: userId=${user_id}, found ${applicants.length} applicants`);
+    res.json(applicantsWithParsedJSON);
   } catch (err) {
     console.error("getApplicantsForEmployer Error:", err.message);
     res.status(500).json({ error: "Error fetching applicants", details: err.message });
   }
 };
-
-
 
 export default {
   getJobs,
@@ -879,13 +983,7 @@ export default {
   getCategories,
   getInterviews: [requireEmployer, getInterviews],
   getAnalytics: [requireEmployer, getAnalytics],
-   
+  getSkills,
+  addSkill,
+  getApplicantsForEmployer,
 };
-
-
-
-
-
-
-
-
