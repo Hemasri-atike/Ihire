@@ -36,8 +36,8 @@ const router = express.Router();
 
 // Categories and Jobs
 router.get('/skills', jobController.getSkills);
-router.post('/skills', jobController.addSkill);
-router.get('/categories', authenticate, jobController.getCategories);
+router.post('/skills/add', jobController.addSkill);
+// router.get('/categories', authenticate, jobController.getCategories);
 router.get('/', jobController.getJobs);
 router.post('/', authenticate, jobController.createJob);
 router.get('/posted', authenticate, jobController.getPostedJobs);
@@ -50,7 +50,7 @@ router.post('/bulk-delete', authenticate, jobController.bulkDeleteJobs);
 router.patch('/:id', authenticate, jobController.toggleJobStatus);
 // router.get('/analytics', authenticate, jobController.getAnalytics);
 // router.get('/interviews', authenticate, jobController.getInterviews);
-router.post('/:jobId/apply', authenticate, upload, jobController.applyToJob);
+router.post('/:jobId/apply', authenticate, upload, jobController.applyToJob);   //working
 router.get('/user-applications', authenticate, jobController.getUserApplications);
 
 
