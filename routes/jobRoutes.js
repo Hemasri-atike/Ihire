@@ -38,7 +38,7 @@ const router = express.Router();
 router.get('/skills', jobController.getSkills);
 router.post('/skills/add', jobController.addSkill);
 // router.get('/categories', authenticate, jobController.getCategories);
-router.get('/', jobController.getJobs);
+router.get('/getalljobs', jobController.getJobs);
 router.post('/', authenticate, jobController.createJob);
 router.get('/posted', authenticate, jobController.getPostedJobs);
 router.get('/:id', authenticate, jobController.getJobById);

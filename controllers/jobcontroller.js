@@ -375,7 +375,11 @@ export const addSkill = async (req, res) => {
   }
 };
 
+
+
+
 export const createJob = async (req, res) => {
+  // ✅ Extract job data from body
   const {
     title,
     company_name,
@@ -393,14 +397,27 @@ export const createJob = async (req, res) => {
     role,
     startDate,
     vacancies,
-    user_id,
   } = req.body;
 
+  // ✅ Get user_id from JWT
+  const user_id = req.user?.id;
   if (!user_id) {
-    return res.status(400).json({ error: 'User ID required', details: 'user_id is required in request body' });
+    return res.status(401).json({
+      error: 'Authentication required',
+      details: 'Valid token with user ID is required',
+    });
   }
 
-  const requiredFields = ['title', 'company_name', 'location', 'description', 'category_id', 'type', 'deadline', 'user_id'];
+  // ✅ Validate required fields (exclude user_id because we take it from JWT)
+  const requiredFields = [
+    'title',
+    'company_name',
+    'location',
+    'description',
+    'category_id',
+    'type',
+    'deadline',
+  ];
   const validationError = validateRequiredFields(requiredFields, req.body, res);
   if (validationError) return validationError;
 
@@ -408,40 +425,65 @@ export const createJob = async (req, res) => {
   try {
     conn = await pool.getConnection();
 
-    const [categoryResult] = await conn.query('SELECT id, name FROM categories WHERE id = ?', [parseInt(category_id)]);
+    // 🔹 Validate category
+    const [categoryResult] = await conn.query(
+      'SELECT id, name FROM categories WHERE id = ?',
+      [parseInt(category_id)]
+    );
     if (!categoryResult.length) {
       return res.status(400).json({ error: 'Invalid category_id' });
     }
 
+    // 🔹 Validate subcategory
     let subcategoryName = null;
     if (subcategory_id) {
-      const [subcategoryResult] = await conn.query('SELECT id, name FROM subcategories WHERE id = ? AND category_id = ?', [
-        parseInt(subcategory_id),
-        parseInt(category_id),
-      ]);
+      const [subcategoryResult] = await conn.query(
+        'SELECT id, name FROM subcategories WHERE id = ? AND category_id = ?',
+        [parseInt(subcategory_id), parseInt(category_id)]
+      );
       if (!subcategoryResult.length) {
-        return res.status(400).json({ error: 'Invalid subcategory_id or subcategory does not belong to the selected category' });
+        return res.status(400).json({
+          error: 'Invalid subcategory_id',
+          details: 'Subcategory does not belong to the selected category',
+        });
       }
       subcategoryName = subcategoryResult[0].name;
     }
 
-    if (skills && Array.isArray(skills)) {
-      const [validSkills] = await conn.query('SELECT skill FROM job_skills WHERE skill IN (?)', [skills]);
+    // 🔹 Validate skills
+    if (skills && Array.isArray(skills) && skills.length > 0) {
+      const [validSkills] = await conn.query(
+        'SELECT skill FROM job_skills WHERE skill IN (?)',
+        [skills]
+      );
       const validSkillNames = validSkills.map(s => s.skill);
       const invalidSkills = skills.filter(s => !validSkillNames.includes(s));
       if (invalidSkills.length > 0) {
-        return res.status(400).json({ error: 'Invalid skills', details: `Skills not found in database: ${invalidSkills.join(', ')}` });
+        return res.status(400).json({
+          error: 'Invalid skills',
+          details: `Skills not found in database: ${invalidSkills.join(', ')}`,
+        });
       }
     }
 
-    const [userResult] = await conn.query('SELECT id FROM users WHERE id = ?', [parseInt(user_id)]);
+    // 🔹 Check user exists
+    const [userResult] = await conn.query(
+      'SELECT id FROM users WHERE id = ?',
+      [parseInt(user_id)]
+    );
     if (!userResult.length) {
-      return res.status(400).json({ error: 'Invalid user_id: User does not exist' });
+      return res.status(400).json({
+        error: 'Invalid user_id',
+        details: 'User does not exist',
+      });
     }
 
+    // 🔹 Insert job
     const [result] = await conn.query(
       `INSERT INTO jobs (
-        title, company_name, location, description, category_id, subcategory_id, salary, type, experience, deadline, skills, status, contactPerson, role, startDate, vacancies, user_id
+        title, company_name, location, description, category_id, subcategory_id, 
+        salary, type, experience, deadline, skills, status, contactPerson, 
+        role, startDate, vacancies, user_id
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         title.substring(0, 255),
@@ -464,6 +506,7 @@ export const createJob = async (req, res) => {
       ]
     );
 
+    // 🔹 Response object
     const newJob = {
       id: result.insertId,
       title,
@@ -490,15 +533,26 @@ export const createJob = async (req, res) => {
       applicantCount: 0,
     };
 
-    console.log(`POST /api/jobs: Created job id=${result.insertId} with user_id=${user_id}`);
-    res.status(201).json(newJob);
+    console.log(
+      `POST /api/jobs: Created job id=${result.insertId} by user_id=${user_id}`
+    );
+
+    return res.status(201).json(newJob);
   } catch (err) {
-    console.error('createJob Error:', { user_id, message: err.message, stack: err.stack });
-    res.status(500).json({ error: 'Failed to create job', details: err.message });
+    console.error('createJob Error:', {
+      user_id,
+      message: err.message,
+      stack: err.stack,
+    });
+    return res
+      .status(500)
+      .json({ error: 'Failed to create job', details: err.message });
   } finally {
     if (conn) conn.release();
   }
 };
+
+
 
 export const updateJob = async (req, res) => {
   const { id } = req.params;
@@ -519,14 +573,27 @@ export const updateJob = async (req, res) => {
     role,
     startDate,
     vacancies,
-    user_id,
   } = req.body;
 
+  // ✅ Get user_id from authenticated user (JWT)
+  const user_id = req.user?.id;
   if (!user_id) {
-    return res.status(400).json({ error: 'User ID required', details: 'user_id is required in request body' });
+    return res.status(401).json({
+      error: 'Authentication required',
+      details: 'Valid token with user ID is required',
+    });
   }
 
-  const requiredFields = ['title', 'company_name', 'location', 'description', 'category_id', 'type', 'deadline', 'user_id'];
+  // ✅ Validate required fields (no user_id in body)
+  const requiredFields = [
+    'title',
+    'company_name',
+    'location',
+    'description',
+    'category_id',
+    'type',
+    'deadline',
+  ];
   const validationError = validateRequiredFields(requiredFields, req.body, res);
   if (validationError) return validationError;
 
@@ -534,6 +601,7 @@ export const updateJob = async (req, res) => {
   try {
     conn = await pool.getConnection();
 
+    // 🔹 Ensure job belongs to user
     const [[job]] = await conn.query(
       'SELECT * FROM jobs WHERE id = ? AND user_id = ? AND deleted_at IS NULL',
       [id, parseInt(user_id)]
@@ -542,32 +610,48 @@ export const updateJob = async (req, res) => {
       return res.status(404).json({ error: 'Job not found or unauthorized' });
     }
 
-    const [categoryResult] = await conn.query('SELECT id, name FROM categories WHERE id = ?', [parseInt(category_id)]);
+    // 🔹 Validate category
+    const [categoryResult] = await conn.query(
+      'SELECT id, name FROM categories WHERE id = ?',
+      [parseInt(category_id)]
+    );
     if (!categoryResult.length) {
       return res.status(400).json({ error: 'Invalid category_id' });
     }
 
+    // 🔹 Validate subcategory
     let subcategoryName = null;
     if (subcategory_id) {
-      const [subcategoryResult] = await conn.query('SELECT id, name FROM subcategories WHERE id = ? AND category_id = ?', [
-        parseInt(subcategory_id),
-        parseInt(category_id),
-      ]);
+      const [subcategoryResult] = await conn.query(
+        'SELECT id, name FROM subcategories WHERE id = ? AND category_id = ?',
+        [parseInt(subcategory_id), parseInt(category_id)]
+      );
       if (!subcategoryResult.length) {
-        return res.status(400).json({ error: 'Invalid subcategory_id or subcategory does not belong to the selected category' });
+        return res.status(400).json({
+          error: 'Invalid subcategory_id',
+          details: 'Subcategory does not belong to the selected category',
+        });
       }
       subcategoryName = subcategoryResult[0].name;
     }
 
+    // 🔹 Validate skills
     if (skills && Array.isArray(skills)) {
-      const [validSkills] = await conn.query('SELECT skill FROM job_skills WHERE skill IN (?)', [skills]);
+      const [validSkills] = await conn.query(
+        'SELECT skill FROM job_skills WHERE skill IN (?)',
+        [skills]
+      );
       const validSkillNames = validSkills.map(s => s.skill);
       const invalidSkills = skills.filter(s => !validSkillNames.includes(s));
       if (invalidSkills.length > 0) {
-        return res.status(400).json({ error: 'Invalid skills', details: `Skills not found in database: ${invalidSkills.join(', ')}` });
+        return res.status(400).json({
+          error: 'Invalid skills',
+          details: `Skills not found in database: ${invalidSkills.join(', ')}`,
+        });
       }
     }
 
+    // 🔹 Update job
     const query = `
       UPDATE jobs 
       SET title = ?, company_name = ?, location = ?, description = ?, 
@@ -599,6 +683,7 @@ export const updateJob = async (req, res) => {
 
     await conn.query(query, values);
 
+    // 🔹 Build updated job response
     const updatedJob = {
       id,
       title,
@@ -614,7 +699,7 @@ export const updateJob = async (req, res) => {
       experience,
       deadline,
       skills: skills || [],
-      status,
+      status: status || 'Draft',
       contactPerson,
       role,
       startDate,
@@ -628,7 +713,11 @@ export const updateJob = async (req, res) => {
     console.log(`PUT /api/jobs/${id}: userId=${user_id}, updated jobId=${id}`);
     res.json(updatedJob);
   } catch (err) {
-    console.error('updateJob Error:', { user_id, message: err.message, stack: err.stack });
+    console.error('updateJob Error:', {
+      user_id,
+      message: err.message,
+      stack: err.stack,
+    });
     res.status(500).json({ error: 'Failed to update job', details: err.message });
   } finally {
     if (conn) conn.release();
@@ -637,30 +726,63 @@ export const updateJob = async (req, res) => {
 
 const deleteJob = async (req, res) => {
   const { id } = req.params;
-  const { userId } = req.query;
+  const user_id = req.user?.id;
 
-  if (!userId) {
-    return res.status(400).json({ error: 'User ID required', details: 'userId query parameter is missing' });
+  if (!user_id) {
+    return res.status(401).json({ error: 'Authentication required', details: 'User must be logged in' });
   }
 
   try {
     const [job] = await pool.query(
-      'SELECT * FROM jobs WHERE id = ? AND user_id = ? AND deleted_at IS NULL',
-      [id, parseInt(userId)]
+      'SELECT id FROM jobs WHERE id = ? AND user_id = ? AND deleted_at IS NULL',
+      [id, user_id]
     );
+
     if (!job.length) {
-      console.log(`DELETE /api/jobs/${id}: No job found for userId=${userId}`);
-      return res.status(404).json({ error: 'Job not found', details: 'Job not found or you do not have access' });
+      return res.status(404).json({ error: 'Job not found', details: 'Job not found or unauthorized' });
     }
 
-    await pool.query('UPDATE jobs SET deleted_at = NOW() WHERE id = ? AND user_id = ?', [id, parseInt(userId)]);
-    console.log(`DELETE /api/jobs/${id}: userId=${userId}`);
-    res.json({ message: 'Job deleted successfully' });
+    await pool.query(
+      'UPDATE jobs SET deleted_at = NOW() WHERE id = ? AND user_id = ?',
+      [id, user_id]
+    );
+
+    return res.json({ message: 'Job deleted successfully' });
   } catch (err) {
-    console.error(`deleteJob Error: id=${id}, userId=${userId}`, { message: err.message, stack: err.stack });
-    res.status(500).json({ error: 'Error deleting job', details: err.message });
+    console.error(`deleteJob Error: id=${id}, userId=${user_id}`, err);
+    return res.status(500).json({ error: 'Error deleting job', details: err.message });
   }
 };
+
+
+
+
+// const deleteJob = async (req, res) => {
+//   const { id } = req.params;
+//   const { userId } = req.query;
+
+//   if (!userId) {
+//     return res.status(400).json({ error: 'User ID required', details: 'userId query parameter is missing' });
+//   }
+
+//   try {
+//     const [job] = await pool.query(
+//       'SELECT * FROM jobs WHERE id = ? AND user_id = ? AND deleted_at IS NULL',
+//       [id, parseInt(userId)]
+//     );
+//     if (!job.length) {
+//       console.log(`DELETE /api/jobs/${id}: No job found for userId=${userId}`);
+//       return res.status(404).json({ error: 'Job not found', details: 'Job not found or you do not have access' });
+//     }
+
+//     await pool.query('UPDATE jobs SET deleted_at = NOW() WHERE id = ? AND user_id = ?', [id, parseInt(userId)]);
+//     console.log(`DELETE /api/jobs/${id}: userId=${userId}`);
+//     res.json({ message: 'Job deleted successfully' });
+//   } catch (err) {
+//     console.error(`deleteJob Error: id=${id}, userId=${userId}`, { message: err.message, stack: err.stack });
+//     res.status(500).json({ error: 'Error deleting job', details: err.message });
+//   }
+// };
 
 const bulkDeleteJobs = async (req, res) => {
   const { jobIds, user_id } = req.body;
