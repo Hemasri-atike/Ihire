@@ -44,8 +44,9 @@ router.get('/posted', authenticate, jobController.getPostedJobs);
 router.get('/:id', authenticate, jobController.getJobById);
 router.get('/applicants',  jobController.getApplicantsByJob);
 router.get('/by-category', authenticate, jobController.getJobsByCategory);
-router.put('/:id', authenticate, jobController.updateJob);
-router.delete('/:id', authenticate, jobController.deleteJob);
+router.put('/:id/updatejob', authenticate, jobController.updateJob);
+router.delete('/:id/deletejobs', authenticate, jobController.deleteJob);
+
 router.post('/bulk-delete', authenticate, jobController.bulkDeleteJobs);
 router.patch('/:id', authenticate, jobController.toggleJobStatus);
 // router.get('/analytics', authenticate, jobController.getAnalytics);

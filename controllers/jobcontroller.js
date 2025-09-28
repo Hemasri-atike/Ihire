@@ -724,65 +724,86 @@ export const updateJob = async (req, res) => {
   }
 };
 
+
+
 const deleteJob = async (req, res) => {
   const { id } = req.params;
-  const user_id = req.user?.id;
+  const userId = req.user?.id; // from authenticate middleware
 
-  if (!user_id) {
-    return res.status(401).json({ error: 'Authentication required', details: 'User must be logged in' });
+  if (!userId) {
+    return res.status(401).json({
+      error: 'Authentication required',
+      details: 'User must be logged in',
+    });
   }
 
   try {
+    // Check if the job exists and belongs to the user
     const [job] = await pool.query(
       'SELECT id FROM jobs WHERE id = ? AND user_id = ? AND deleted_at IS NULL',
-      [id, user_id]
+      [id, userId]
     );
 
     if (!job.length) {
-      return res.status(404).json({ error: 'Job not found', details: 'Job not found or unauthorized' });
+      return res.status(404).json({
+        error: 'Job not found',
+        details: 'Job not found or you are not authorized to delete it',
+      });
     }
 
+    // Soft delete the job
     await pool.query(
       'UPDATE jobs SET deleted_at = NOW() WHERE id = ? AND user_id = ?',
-      [id, user_id]
+      [id, userId]
     );
 
-    return res.json({ message: 'Job deleted successfully' });
+    return res.json({
+      message: 'Job deleted successfully',
+      jobId: id,
+    });
   } catch (err) {
-    console.error(`deleteJob Error: id=${id}, userId=${user_id}`, err);
-    return res.status(500).json({ error: 'Error deleting job', details: err.message });
+    console.error(`deleteJob Error: jobId=${id}, userId=${userId}`, err);
+    return res.status(500).json({
+      error: 'Error deleting job',
+      details: err.message,
+    });
   }
 };
 
 
-
-
 // const deleteJob = async (req, res) => {
 //   const { id } = req.params;
-//   const { userId } = req.query;
+//   const user_id = req.user?.id;
 
-//   if (!userId) {
-//     return res.status(400).json({ error: 'User ID required', details: 'userId query parameter is missing' });
+//   if (!user_id) {
+//     return res.status(401).json({ error: 'Authentication required', details: 'User must be logged in' });
 //   }
 
 //   try {
 //     const [job] = await pool.query(
-//       'SELECT * FROM jobs WHERE id = ? AND user_id = ? AND deleted_at IS NULL',
-//       [id, parseInt(userId)]
+//       'SELECT id FROM jobs WHERE id = ? AND user_id = ? AND deleted_at IS NULL',
+//       [id, user_id]
 //     );
+
 //     if (!job.length) {
-//       console.log(`DELETE /api/jobs/${id}: No job found for userId=${userId}`);
-//       return res.status(404).json({ error: 'Job not found', details: 'Job not found or you do not have access' });
+//       return res.status(404).json({ error: 'Job not found', details: 'Job not found or unauthorized' });
 //     }
 
-//     await pool.query('UPDATE jobs SET deleted_at = NOW() WHERE id = ? AND user_id = ?', [id, parseInt(userId)]);
-//     console.log(`DELETE /api/jobs/${id}: userId=${userId}`);
-//     res.json({ message: 'Job deleted successfully' });
+//     await pool.query(
+//       'UPDATE jobs SET deleted_at = NOW() WHERE id = ? AND user_id = ?',
+//       [id, user_id]
+//     );
+
+//     return res.json({ message: 'Job deleted successfully' });
 //   } catch (err) {
-//     console.error(`deleteJob Error: id=${id}, userId=${userId}`, { message: err.message, stack: err.stack });
-//     res.status(500).json({ error: 'Error deleting job', details: err.message });
+//     console.error(`deleteJob Error: id=${id}, userId=${user_id}`, err);
+//     return res.status(500).json({ error: 'Error deleting job', details: err.message });
 //   }
 // };
+
+
+
+
 
 const bulkDeleteJobs = async (req, res) => {
   const { jobIds, user_id } = req.body;
