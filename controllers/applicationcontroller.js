@@ -1,5 +1,4 @@
 
-
 import pool from "../config/db.js";
 
 // Apply to a job (for job seekers)
@@ -157,87 +156,6 @@ export const getApplications = async (req, res) => {
     res.status(500).json({ error: "Error fetching applications", details: error.message });
   }
 };
-
-// Get user's applications (for job seekers)
-// export const getUserApplications = async (req, res) => {
-//   try {
-//     const candidateId = req.user.id;
-//     const userRole = req.user.role;
-//     const { search = '', status = '', page = 1, limit = 4 } = req.query;
-//     const queryParams = [candidateId, Number(limit), (Number(page) - 1) * Number(limit)];
-
-
-//     if (userRole !== 'job_seeker') {
-//       return res.status(403).json({ error: "Forbidden", details: "Only job seekers can access their applied jobs" });
-//     }
-
-// let query = `
-//   SELECT 
-//     a.id,
-//     a.job_id,
-//     a.status,
-//     a.createdAt,
-//     j.title,
-//     j.company_name,
-//     j.location,
-//     j.salary
-//   FROM applications a
-//   LEFT JOIN jobs j ON a.job_id = j.id
-//   WHERE a.user_id = ?
-// `;
-
-
-//     if (search) {
-//       query += ` AND (a.jobTitle LIKE ? OR a.company LIKE ? OR j.title LIKE ? OR j.company_name LIKE ?)`;
-//       queryParams.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`);
-//     }
-//     if (status && status !== 'All') {
-//       query += ` AND a.status = ?`;
-//       queryParams.push(status);
-//     }
-
-//     query += ` ORDER BY a.createdAt DESC LIMIT ? OFFSET ?`;
-//     queryParams.push(Number(limit), (Number(page) - 1) * Number(limit));
-
-//     const [rows] = await pool.execute(query, queryParams);
-//     const [totalResult] = await pool.execute(
-//       `SELECT COUNT(*) as total FROM applications WHERE candidateId = ?${search ? ' AND (jobTitle LIKE ? OR company LIKE ?)' : ''}${status && status !== 'All' ? ' AND status = ?' : ''}`,
-//       search ? [candidateId, `%${search}%`, `%${search}%`, ...(status && status !== 'All' ? [status] : [])] : [candidateId, ...(status && status !== 'All' ? [status] : [])]
-//     );
-
-//     res.status(200).json({
-//       jobs: rows.map(row => ({
-//         id: row.id,
-//         job_id: row.jobId,
-//         title: row.title || row.jobTitle,
-//         company_name: row.company_name || row.company,
-//         location: row.location,
-//         salary: row.salary,
-//         tags: row.tags ? row.tags.split(',') : [],
-//         status: row.status,
-//         createdAt: row.createdAt,
-//         interviewDate: row.interviewDate,
-//         recruiterActions: {
-//           invitationSent: !!row.interviewDate,
-//           resumeDownloaded: false, // Add logic if tracking resume downloads
-//         },
-//       })),
-//       total: totalResult[0].total,
-//       page: Number(page),
-//       limit: Number(limit),
-//     });
-//   } catch (error) {
-//     console.error('Error fetching user applications:', error);
-//     res.status(500).json({ error: "Error fetching applications", details: error.message });
-//   }
-// };
-
-
-
-
-
-
-
 // Get user's applications
 export const getUserApplications = async (req, res) => {
   try {
@@ -352,8 +270,6 @@ console.log("Sdf",applications)
     res.status(500).json({ error: "Error fetching applications", details: err.message });
   }
 };
-
-
 // Update application status (for employers)
 export const updateApplicationStatus = async (req, res) => {
   try {
