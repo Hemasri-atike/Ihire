@@ -39,11 +39,11 @@ router.get('/skills', jobController.getSkills);
 router.post('/skills/add', jobController.addSkill);
 // router.get('/categories', authenticate, jobController.getCategories);
 router.get('/getalljobs', jobController.getJobs);
-router.post('/', authenticate, jobController.createJob);
+router.post('/create-job', authenticate, jobController.createJob);
 router.get('/posted', authenticate, jobController.getPostedJobs);
 router.get('/:id', authenticate, jobController.getJobById);
 router.get('/applicants',  jobController.getApplicantsByJob);
-// router.get('/by-category', authenticate, jobController.getJobsByCategory);
+
 router.put('/:id/updatejob', authenticate, jobController.updateJob);
 router.delete('/:id/deletejobs',  jobController.deleteJob);
 

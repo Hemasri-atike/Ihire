@@ -26,6 +26,7 @@ import resumeRoutes from "./routes/resumeRoutes.js";
 import empRoutes from "./routes/empRoutes.js";
 import subcategoryRoutes from "./routes/subcategoryRoutes.js";
 
+
 dotenv.config();
 
 // Configure __dirname for ES modules
@@ -115,6 +116,7 @@ app.use("/api/profile",  profileRoutes);
 app.use("/api/resume", resumeRoutes);
 app.use("/api/employees", authenticate, empRoutes);
 app.use("/api/subcategories", authenticate, subcategoryRoutes);
+
 
 // Global error handler
 app.use((err, req, res, next) => {
