@@ -314,3 +314,102 @@ export const updateApplicationStatus = async (req, res) => {
     res.status(500).json({ error: "Error updating application status", details: error.message });
   }
 };
+
+export const getApplicantsByJob = async (req, res) => {
+  const { jobId } = req.params;
+
+  if (!jobId) {
+    return res.status(400).json({ error: "Job ID is required" });
+  }
+
+  try {
+    const [rows] = await pool.query(
+      `SELECT a.*, j.jobTitle, j.company, j.user_id AS employerId
+       FROM applications a
+       JOIN jobs j ON a.jobId = j.id
+       WHERE a.jobId = ?`,
+      [jobId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: "No applicants found for this job" });
+    }
+
+    res.status(200).json(rows);
+  } catch (error) {
+    console.error("Error fetching applicants by job:", error);
+    res.status(500).json({ error: "Database error", details: error.message });
+  }
+};
+export const getApplicantsByUserJobs = async (req, res) => {
+  const { userId } = req.params;
+
+  if (!userId) {
+    return res.status(400).json({ error: "User ID is required" });
+  }
+
+  try {
+  const [rows] = await pool.query(
+  `SELECT 
+      a.*, 
+      j.title, 
+      j.company_name AS company, 
+      j.id AS jobId
+   FROM applications a
+   JOIN jobs j ON a.job_id = j.id
+   WHERE j.user_id = ?`,
+  [userId]
+);
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: "No applicants found for your jobs" });
+    }
+
+    res.status(200).json(rows);
+  } catch (error) {
+    console.error("Error fetching applicants by user jobs:", error);
+    res.status(500).json({ error: "Database error", details: error.message });
+  }
+};
+export const getApplicants = async (req, res) => {
+  const employerId = req.user.id; // authenticated employer
+
+  try {
+    const conn = await pool.getConnection();
+
+    // Fetch all jobs for this employer that are not deleted
+    const [jobs] = await conn.query(
+      `SELECT id FROM jobs WHERE user_id = ? AND deleted_at IS NULL`,
+      [employerId]
+    );
+
+    if (jobs.length === 0) {
+      return res.status(404).json({
+        error: "No jobs found",
+        details: "You have not posted any active jobs"
+      });
+    }
+
+    // Get job IDs
+    const jobIds = jobs.map(job => job.id);
+
+    // Fetch all applicants for these jobs
+    const [applicants] = await conn.query(
+      `SELECT 
+        a.id, a.fullName, a.email, a.phone, a.location, a.experience, a.jobTitle,
+        a.company, a.qualification, a.specialization, a.university, a.skills,
+        a.resume, a.coverLetter, a.linkedIn, a.portfolio, a.createdAt,
+        a.job_id, a.user_id AS candidate_user_id, a.candidate_id, a.status, a.notes
+      FROM applications a
+      WHERE a.job_id IN (?)`,
+      [jobIds]
+    );
+
+    conn.release();
+    res.json(applicants);
+
+  } catch (error) {
+    console.error("Fetch applicants error:", error);
+    res.status(500).json({ error: "Server error", details: error.message });
+  }
+};

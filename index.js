@@ -13,7 +13,7 @@ import headerRoutes from "./routes/headerRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
 import jobRoutes from "./routes/jobRoutes.js";
 import applicationRoutes from "./routes/applicationRoutes.js";
-import applicantRoutes from "./routes/applicant.js";
+
 import companyRoutes from "./routes/companyRoutes.js";
 import dashboardRoutes from "./routes/dashboardroutes.js";
 import candidateRoutes from "./routes/candidateroute.js";
@@ -104,7 +104,7 @@ app.use(
   ]),
   applicationRoutes
 );
-app.use("/api", applicantRoutes);
+// app.use("/api", applicantRoutes);
 app.use("/api/companies",  companyRoutes);
 app.use("/api/dashboard", authenticate, dashboardRoutes);
 app.use("/api/candidates", authenticate, candidateRoutes);
