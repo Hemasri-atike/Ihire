@@ -1,37 +1,27 @@
 
 import pool from "../config/db.js";
 
+
 // Apply to a job (for job seekers)
 export const createApplication = async (req, res) => {
   try {
     const {
-      fullName,
-      email,
-      phone,
-      location,
-      experience,
-      jobTitle,
-      company,
-      qualification,
-      specialization,
-      university,
-      skills,
-      coverLetter,
-      linkedIn,
-      portfolio,
-      jobId, // Required to link application to a specific job
+      fullName, email, phone, location, experience,
+      jobTitle, company, qualification, specialization,
+      university, skills, coverLetter, linkedIn, portfolio,
+      jobId
     } = req.body;
 
     const resume = req.file ? req.file.filename : null;
-    const candidateId = req.user.id; // From authenticate middleware
-    const userRole = req.user.role; // From authenticate middleware
+    const candidateId = req.user.id;
+    const userRole = req.user.role;
 
     if (userRole !== 'job_seeker') {
       return res.status(403).json({ error: "Forbidden", details: "Only job seekers can apply to jobs" });
     }
 
-    // Validate jobId and get employerId
-    const [job] = await pool.execute("SELECT employerId FROM jobs WHERE id = ?", [jobId]);
+    // Validate jobId and get employer
+    const [job] = await pool.execute("SELECT user_id AS employerId FROM jobs WHERE id = ?", [jobId]);
     if (job.length === 0) {
       return res.status(404).json({ error: "Job not found" });
     }
@@ -39,39 +29,25 @@ export const createApplication = async (req, res) => {
 
     // Check if application already exists
     const [existing] = await pool.execute(
-      "SELECT * FROM applications WHERE candidateId = ? AND jobId = ?",
+      "SELECT * FROM applications WHERE candidate_id = ? AND job_id = ?",
       [candidateId, jobId]
     );
-
     if (existing.length > 0) {
       return res.status(400).json({ error: "Application already exists for this job" });
     }
 
     const query = `
-      INSERT INTO applications 
-      (candidateId, jobId, employerId, fullName, email, phone, location, experience, jobTitle, company, qualification, specialization, university, skills, resume, coverLetter, linkedIn, portfolio, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Applied')
+      INSERT INTO applications
+      (candidate_id, job_id, fullName, email, phone, location, experience,
+       jobTitle, company, qualification, specialization, university, skills,
+       resume, coverLetter, linkedIn, portfolio, status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Applied')
     `;
-
     const [result] = await pool.execute(query, [
-      candidateId,
-      jobId,
-      employerId,
-      fullName || null,
-      email || null,
-      phone || null,
-      location || null,
-      experience || null,
-      jobTitle || null,
-      company || null,
-      qualification || null,
-      specialization || null,
-      university || null,
-      skills || null,
-      resume || null,
-      coverLetter || null,
-      linkedIn || null,
-      portfolio || null,
+      candidateId, jobId, fullName || null, email || null, phone || null,
+      location || null, experience || null, jobTitle || null, company || null,
+      qualification || null, specialization || null, university || null, skills || null,
+      resume || null, coverLetter || null, linkedIn || null, portfolio || null
     ]);
 
     res.status(201).json({ message: "Application submitted successfully", id: result.insertId });
@@ -94,16 +70,13 @@ export const getApplications = async (req, res) => {
     }
 
     // Verify employer owns the job
-    const [job] = await pool.execute("SELECT * FROM jobs WHERE id = ? AND employerId = ?", [jobId, employerId]);
+    const [job] = await pool.execute("SELECT * FROM jobs WHERE id = ? AND user_id = ?", [jobId, employerId]);
     if (job.length === 0) {
       return res.status(403).json({ error: "Forbidden", details: "You do not have permission to view applications for this job" });
     }
 
-    let query = `
-      SELECT * FROM applications 
-      WHERE jobId = ? AND employerId = ?
-    `;
-    const queryParams = [jobId, employerId];
+    let query = `SELECT * FROM applications WHERE job_id = ?`;
+    const queryParams = [jobId];
 
     if (search) {
       query += ` AND (fullName LIKE ? OR jobTitle LIKE ?)`;
@@ -118,10 +91,16 @@ export const getApplications = async (req, res) => {
     queryParams.push(Number(limit), (Number(page) - 1) * Number(limit));
 
     const [rows] = await pool.execute(query, queryParams);
-    const [totalResult] = await pool.execute(
-      `SELECT COUNT(*) as total FROM applications WHERE jobId = ? AND employerId = ?${search ? ' AND (fullName LIKE ? OR jobTitle LIKE ?)' : ''}${status && status !== 'All' ? ' AND status = ?' : ''}`,
-      search ? [jobId, employerId, `%${search}%`, `%${search}%`, ...(status && status !== 'All' ? [status] : [])] : [jobId, employerId, ...(status && status !== 'All' ? [status] : [])]
-    );
+
+    // Count total
+    let countQuery = `SELECT COUNT(*) AS total FROM applications WHERE job_id = ?`;
+    const countParams = [jobId];
+    if (search) countQuery += ` AND (fullName LIKE ? OR jobTitle LIKE ?)`;
+    if (status && status !== 'All') countQuery += ` AND status = ?`;
+    if (search) countParams.push(`%${search}%`, `%${search}%`);
+    if (status && status !== 'All') countParams.push(status);
+
+    const [totalResult] = await pool.execute(countQuery, countParams);
 
     res.status(200).json({
       applicants: rows.map(row => ({
@@ -144,18 +123,60 @@ export const getApplications = async (req, res) => {
         status: row.status,
         applicationDate: row.createdAt,
         interviewDate: row.interviewDate,
-        jobId: row.jobId,
-        candidateId: row.candidateId,
+        jobId: row.job_id,
+        candidateId: row.candidate_id
       })),
       total: totalResult[0].total,
       page: Number(page),
-      limit: Number(limit),
+      limit: Number(limit)
     });
   } catch (error) {
     console.error('Error fetching applications:', error);
     res.status(500).json({ error: "Error fetching applications", details: error.message });
   }
 };
+
+// Update application status (for employers)
+export const updateApplicationStatus = async (req, res) => {
+  try {
+    const { applicationId } = req.params;
+    const { status, interviewDate } = req.body;
+    const employerId = req.user.id;
+    const userRole = req.user.role;
+
+    if (userRole !== 'employer') {
+      return res.status(403).json({ error: "Forbidden", details: "Only employers can update application status" });
+    }
+
+    // Verify employer owns the job
+    const [rows] = await pool.execute(
+      `SELECT a.id, j.user_id AS ownerId FROM applications a
+       JOIN jobs j ON a.job_id = j.id
+       WHERE a.id = ?`,
+      [applicationId]
+    );
+
+    if (rows.length === 0 || rows[0].ownerId !== employerId) {
+      return res.status(403).json({ error: "Forbidden", details: "You do not have permission to update this application" });
+    }
+
+    const validStatuses = ['Applied', 'Under Review', 'Shortlisted', 'Interview Scheduled', 'Rejected'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ error: "Invalid status" });
+    }
+
+    await pool.execute(
+      `UPDATE applications SET status = ?, interview_date = ? WHERE id = ?`,
+      [status, status === 'Interview Scheduled' ? interviewDate || null : null, applicationId]
+    );
+
+    res.status(200).json({ id: applicationId, status, interviewDate: status === 'Interview Scheduled' ? interviewDate || null : null });
+  } catch (error) {
+    console.error('Error updating application status:', error);
+    res.status(500).json({ error: "Error updating application status", details: error.message });
+  }
+};
+
 // Get user's applications
 export const getUserApplications = async (req, res) => {
   try {
@@ -270,50 +291,6 @@ console.log("Sdf",applications)
     res.status(500).json({ error: "Error fetching applications", details: err.message });
   }
 };
-// Update application status (for employers)
-export const updateApplicationStatus = async (req, res) => {
-  try {
-    const { applicationId } = req.params;
-    const { status, interviewDate } = req.body;
-    const employerId = req.user.id;
-    const userRole = req.user.role;
-
-    if (userRole !== 'employer') {
-      return res.status(403).json({ error: "Forbidden", details: "Only employers can update application status" });
-    }
-
-    // Verify employer owns the job
-    const [application] = await pool.execute(
-      "SELECT * FROM applications WHERE id = ? AND employerId = ?",
-      [applicationId, employerId]
-    );
-    if (application.length === 0) {
-      return res.status(403).json({ error: "Forbidden", details: "You do not have permission to update this application" });
-    }
-
-    const validStatuses = ['Applied', 'Under Review', 'Shortlisted', 'Interview Scheduled', 'Rejected'];
-    if (!validStatuses.includes(status)) {
-      return res.status(400).json({ error: "Invalid status" });
-    }
-
-    const query = `
-      UPDATE applications 
-      SET status = ?, interviewDate = ? 
-      WHERE id = ? AND employerId = ?
-    `;
-    await pool.execute(query, [
-      status,
-      status === 'Interview Scheduled' ? interviewDate || null : null,
-      applicationId,
-      employerId,
-    ]);
-
-    res.status(200).json({ id: applicationId, status, interviewDate: status === 'Interview Scheduled' ? interviewDate || null : null });
-  } catch (error) {
-    console.error('Error updating application status:', error);
-    res.status(500).json({ error: "Error updating application status", details: error.message });
-  }
-};
 
 export const getApplicantsByJob = async (req, res) => {
   const { jobId } = req.params;
@@ -413,3 +390,172 @@ export const getApplicants = async (req, res) => {
     res.status(500).json({ error: "Server error", details: error.message });
   }
 };
+
+// Update application status (for employers)
+export const updateApplicantStatus = async (req, res) => {
+  try {
+    const { id } = req.params; // application ID
+    const { status, notes } = req.body;
+    const userId = req.user.id; // authenticated employer ID
+    const userRole = req.user.role;
+
+    if (userRole !== 'employer') {
+      return res.status(403).json({ error: "Forbidden", details: "Only employers can update application status" });
+    }
+
+    const validStatuses = ["Applied", "Under Review", "Shortlisted", "Interview Scheduled", "Hired", "Rejected"];
+    if (status && !validStatuses.includes(status)) {
+      return res.status(400).json({ error: "Invalid status" });
+    }
+
+    // Verify employer owns the job related to this application
+ // Correct way to check ownership and update status
+const [rows] = await pool.query(
+  `SELECT a.id, j.user_id AS ownerId
+   FROM applications a
+   JOIN jobs j ON a.job_id = j.id
+   WHERE a.id = ?`,
+  [applicationId]
+);
+
+if (rows.length === 0 || rows[0].ownerId !== req.user.id) {
+  return res.status(403).json({ error: "Forbidden", details: "You don't have permission to update this applicant" });
+}
+
+// Update the application
+await pool.query(
+  `UPDATE applications
+   SET status = ?, interview_date = ?
+   WHERE id = ?`,
+  [status, interviewDate || null, applicationId]
+);
+
+
+if (rows.length === 0 || rows[0].ownerId !== req.user.id) {
+  return res.status(403).json({ error: "Forbidden", details: "You don't have permission to update this applicant" });
+}
+
+// Update the application
+await pool.query(
+  `UPDATE applications 
+   SET status = ?, interview_date = ? 
+   WHERE id = ?`,
+  [status, interviewDate || null, applicationId]
+);
+
+
+    if (rows.length === 0 || rows[0].ownerId !== userId) {
+      return res.status(403).json({ error: "Forbidden", details: "You don't have permission to update this applicant" });
+    }
+
+    // Update application status and notes
+    await pool.query(
+      `UPDATE applications 
+       SET status = ?, notes = ?
+       WHERE id = ?`,
+      [
+        status || rows[0].status,
+        notes || null,
+        id
+      ]
+    );
+
+    res.json({ message: "Applicant status updated successfully", id, status, notes });
+
+  } catch (error) {
+    console.error("Error updating applicant status:", error);
+    res.status(500).json({ error: "Database error", details: error.message });
+  }
+};
+
+// Add note to applicant
+export const addApplicantNote = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { notes } = req.body;
+    const userId = req.user.id;
+
+    const [check] = await pool.query(
+      `SELECT a.id, j.user_id AS ownerId
+       FROM applications a
+       JOIN jobs j ON a.job_id = j.id
+       WHERE a.id = ?`,
+      [id]
+    );
+
+    if (check.length === 0 || check[0].ownerId !== userId) {
+      return res.status(403).json({ error: "Forbidden", details: "Not your applicant" });
+    }
+
+    await pool.query(`UPDATE applications SET notes = ? WHERE id = ?`, [notes, id]);
+    res.json({ message: "Note added successfully", id, notes });
+
+  } catch (error) {
+    console.error("Error adding applicant note:", error);
+    res.status(500).json({ error: "Error adding note", details: error.message });
+  }
+};
+
+// Schedule interview
+export const scheduleInterview = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { interviewDate, interviewMode, interviewLink } = req.body;
+    const userId = req.user.id;
+
+    const [check] = await pool.query(
+      `SELECT a.id, j.user_id AS ownerId
+       FROM applications a
+       JOIN jobs j ON a.job_id = j.id
+       WHERE a.id = ?`,
+      [id]
+    );
+
+    if (check.length === 0 || check[0].ownerId !== userId) {
+      return res.status(403).json({ error: "Forbidden", details: "Not your applicant" });
+    }
+
+    await pool.query(
+      `UPDATE applications 
+       SET interview_date = ?, interview_mode = ?, interview_link = ?, status = 'Interview Scheduled'
+       WHERE id = ?`,
+      [interviewDate, interviewMode || 'Online', interviewLink || null, id]
+    );
+
+    res.json({ message: "Interview scheduled successfully", id, interviewDate, interviewMode, interviewLink });
+
+  } catch (error) {
+    console.error("Error scheduling interview:", error);
+    res.status(500).json({ error: "Error scheduling interview", details: error.message });
+  }
+};
+
+// Delete applicant
+export const deleteApplicant = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    const [check] = await pool.query(
+      `SELECT a.id, j.user_id AS ownerId
+       FROM applications a
+       JOIN jobs j ON a.job_id = j.id
+       WHERE a.id = ?`,
+      [id]
+    );
+
+    if (check.length === 0 || check[0].ownerId !== userId) {
+      return res.status(403).json({ error: "Forbidden", details: "Not your applicant" });
+    }
+
+    await pool.query(`DELETE FROM applications WHERE id = ?`, [id]);
+    res.json({ message: "Applicant deleted successfully", id });
+
+  } catch (error) {
+    console.error("Error deleting applicant:", error);
+    res.status(500).json({ error: "Error deleting applicant", details: error.message });
+  }
+};
+
+
+

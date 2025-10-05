@@ -8,7 +8,12 @@ import {
   getUserApplications,
   updateApplicationStatus,
   getApplicantsByUserJobs,
-  getApplicantsByJob
+  getApplicantsByJob,
+  updateApplicantStatus,
+  addApplicantNote,
+  scheduleInterview,
+  deleteApplicant
+
 } from '../controllers/applicationcontroller.js';
 
 const router = express.Router();
@@ -32,6 +37,10 @@ router.get("/applicants/job/:jobId", getApplicantsByJob);
 router.get("/jobs/applicants/user/:userId", getApplicantsByUserJobs);
 
 
+router.put("/applicants/:id/status", authenticate, updateApplicantStatus);
+router.put("/applicants/:id/notes", authenticate, addApplicantNote);
+router.put("/applicants/:id/interview", authenticate, scheduleInterview);
+router.delete("/applicants/:id", authenticate, deleteApplicant);
 
 export default router;
 
