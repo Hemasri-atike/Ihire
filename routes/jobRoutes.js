@@ -34,25 +34,22 @@ const upload = multer({
 
 const router = express.Router();
 
-// Categories and Jobs
 router.get('/skills', jobController.getSkills);
 router.post('/skills/add', jobController.addSkill);
-// router.get('/categories', authenticate, jobController.getCategories);
+
 router.get('/getalljobs', jobController.getJobs);
-router.post('/create-job', authenticate, jobController.createJob);
+router.get('/', jobController.getJobs);
 router.get('/posted', authenticate, jobController.getPostedJobs);
 router.get('/:id', authenticate, jobController.getJobById);
-router.get('/applicants',  jobController.getApplicantsByJob);
+router.get('/:jobId/applicants', authenticate, jobController.getApplicantsByJob);
 
+router.post('/create-job', authenticate, jobController.createJob);
 router.put('/:id/updatejob', authenticate, jobController.updateJob);
-router.delete('/:id/deletejobs',  jobController.deleteJob);
-
+router.delete('/:id/deletejobs', authenticate, jobController.deleteJob);
 router.post('/bulk-delete', authenticate, jobController.bulkDeleteJobs);
 router.patch('/:id', authenticate, jobController.toggleJobStatus);
-// router.get('/analytics', authenticate, jobController.getAnalytics);
-// router.get('/interviews', authenticate, jobController.getInterviews);
-router.post('/:jobId/apply', authenticate, upload, jobController.applyToJob);   //working
-router.get('/user-applications', authenticate, jobController.getUserApplications);
 
+router.post('/:jobId/apply', authenticate, upload, jobController.applyToJob);
+router.get('/user-applications', authenticate, jobController.getUserApplications);
 
 export default router;

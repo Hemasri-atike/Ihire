@@ -726,9 +726,11 @@ export const updateJob = async (req, res) => {
 
 
 
-const deleteJob = async (req, res) => {
+
+
+      export const deleteJob = async (req, res) => {
   const { id } = req.params;
-  const userId = req.user?.id; // from authenticate middleware
+  const userId = req.user?.id; 
 
   if (!userId) {
     return res.status(401).json({
@@ -770,73 +772,48 @@ const deleteJob = async (req, res) => {
   }
 };
 
+     export const bulkDeleteJobs = async (req, res) => {
+  const userId = req.user?.id;
+  const { jobIds } = req.body;
 
-// const deleteJob = async (req, res) => {
-//   const { id } = req.params;
-//   const user_id = req.user?.id;
+  if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+  if (!Array.isArray(jobIds) || !jobIds.length) return res.status(400).json({ error: 'jobIds required' });
 
-//   if (!user_id) {
-//     return res.status(401).json({ error: 'Authentication required', details: 'User must be logged in' });
-//   }
-
-//   try {
-//     const [job] = await pool.query(
-//       'SELECT id FROM jobs WHERE id = ? AND user_id = ? AND deleted_at IS NULL',
-//       [id, user_id]
-//     );
-
-//     if (!job.length) {
-//       return res.status(404).json({ error: 'Job not found', details: 'Job not found or unauthorized' });
-//     }
-
-//     await pool.query(
-//       'UPDATE jobs SET deleted_at = NOW() WHERE id = ? AND user_id = ?',
-//       [id, user_id]
-//     );
-
-//     return res.json({ message: 'Job deleted successfully' });
-//   } catch (err) {
-//     console.error(`deleteJob Error: id=${id}, userId=${user_id}`, err);
-//     return res.status(500).json({ error: 'Error deleting job', details: err.message });
-//   }
-// };
-
-
-
-
-
-const bulkDeleteJobs = async (req, res) => {
-  const { jobIds, user_id } = req.body;
-
-  if (!user_id) {
-    return res.status(400).json({ error: 'User ID required', details: 'user_id is required in request body' });
-  }
-
+  const conn = await pool.getConnection();
   try {
-    if (!Array.isArray(jobIds) || jobIds.length === 0) {
-      return res.status(400).json({ error: 'Invalid input', details: 'jobIds must be a non-empty array' });
-    }
+    await conn.beginTransaction();
 
-    const [jobs] = await pool.query(
-      'SELECT id FROM jobs WHERE id IN (?) AND user_id = ? AND deleted_at IS NULL',
-      [jobIds, parseInt(user_id)]
+    // Validate jobs
+    const [jobs] = await conn.query(
+      `SELECT id FROM jobs WHERE id IN (${jobIds.map(() => '?').join(',')}) AND user_id = ? AND deleted_at IS NULL`,
+      [...jobIds, userId]
     );
-    const validJobIds = jobs.map(job => job.id);
-    const invalidJobIds = jobIds.filter(id => !validJobIds.includes(id));
 
-    if (invalidJobIds.length > 0) {
-      console.log(`bulkDeleteJobs: Invalid job IDs for userId=${user_id}`, invalidJobIds);
-      return res.status(404).json({ error: 'Some jobs not found', details: `Invalid job IDs: ${invalidJobIds.join(', ')}` });
+    const validJobIds = jobs.map(j => j.id);
+    if (!validJobIds.length) {
+      await conn.rollback();
+      return res.status(404).json({ error: 'No valid jobs to delete' });
     }
 
-    await pool.query('UPDATE jobs SET deleted_at = NOW() WHERE id IN (?) AND user_id = ?', [jobIds, parseInt(user_id)]);
-    console.log(`POST /api/jobs/bulk-delete: userId=${user_id}, deleted jobIds=`, jobIds);
-    res.json({ message: 'Jobs deleted successfully' });
+    // Soft delete
+    const [result] = await conn.query(
+      `UPDATE jobs SET deleted_at = NOW() WHERE id IN (${validJobIds.map(() => '?').join(',')}) AND user_id = ?`,
+      [...validJobIds, userId]
+    );
+
+    await conn.commit();
+
+    console.log('bulkDeleteJobs affectedRows:', result.affectedRows);
+    res.json({ message: 'Jobs deleted successfully', deletedJobIds: validJobIds });
   } catch (err) {
-    console.error(`bulkDeleteJobs Error: userId=${user_id}`, { message: err.message, stack: err.stack });
+    await conn.rollback();
+    console.error('bulkDeleteJobs Error:', err);
     res.status(500).json({ error: 'Error deleting jobs', details: err.message });
+  } finally {
+    conn.release();
   }
 };
+
 
 const toggleJobStatus = async (req, res) => {
   const { id } = req.params;
@@ -948,7 +925,6 @@ const getUserApplications = async (req, res) => {
 };
 
 
-
 const getApplicantsByJob = async (req, res) => {
   const jobId = req.params.jobId;
   const { userId } = req.query;
@@ -958,6 +934,12 @@ const getApplicantsByJob = async (req, res) => {
   }
 
   try {
+    // Prevent browser caching
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.setHeader('Surrogate-Control', 'no-store');
+
     const [job] = await pool.query(
       'SELECT id FROM jobs WHERE id = ? AND user_id = ? AND deleted_at IS NULL',
       [jobId, parseInt(userId)]
@@ -995,6 +977,7 @@ const getApplicantsByJob = async (req, res) => {
     res.status(500).json({ error: 'Error fetching applicants', details: err.message });
   }
 };
+
 
 // Version 1: applyToJob without user_id in applications table
 const applyToJob = async (req, res) => {

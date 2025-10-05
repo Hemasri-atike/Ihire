@@ -93,8 +93,10 @@ app.get("/", (req, res) => res.send("Job Portal Backend running"));
 // Routes
 app.use("/api/header", headerRoutes);
 app.use("/api/users", userRoutes);
+
 app.use("/jobs", jobRoutes);
-app.use("/api/jobs", jobRoutes)
+app.use("/api/jobs", jobRoutes);
+
 app.use(
   "/api/applications",
   authenticate,
