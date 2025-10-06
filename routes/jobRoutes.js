@@ -41,7 +41,7 @@ router.get('/by-category',  jobController.getJobsByCategoryOrSubcategory);
 router.get('/getalljobs', jobController.getJobs);
 router.get('/', jobController.getJobs);
 router.get('/posted', authenticate, jobController.getPostedJobs);
-router.get('/:id', authenticate, jobController.getJobById);
+// router.get('/:id', authenticate, jobController.getJobById);
 router.get('/:jobId/applicants', authenticate, jobController.getApplicantsByJob);
 
 router.post('/create-job', authenticate, jobController.createJob);

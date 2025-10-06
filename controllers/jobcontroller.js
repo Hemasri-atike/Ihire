@@ -156,59 +156,59 @@ const getPostedJobs = async (req, res) => {
   }
 };
 
-const getJobById = async (req, res) => {
-  const { id } = req.params;
-  const { userId } = req.query;
+// const getJobById = async (req, res) => {
+//   const { id } = req.params;
+//   const { userId } = req.query;
 
-  if (!userId) {
-    return res.status(400).json({ error: 'User ID required', details: 'userId query parameter is missing' });
-  }
+//   if (!userId) {
+//     return res.status(400).json({ error: 'User ID required', details: 'userId query parameter is missing' });
+//   }
 
-  try {
-    const [jobs] = await pool.query(
-      `SELECT j.*, s.name AS subcategory_name, c.name AS category_name 
-       FROM jobs j 
-       LEFT JOIN subcategories s ON j.subcategory_id = s.id
-       LEFT JOIN categories c ON j.category_id = c.id
-       WHERE j.id = ? AND j.user_id = ? AND j.deleted_at IS NULL`,
-      [id, parseInt(userId)]
-    );
-    if (!jobs.length) {
-      console.log(`GET /api/jobs/${id}: No job found for userId=${userId}`);
-      return res.status(404).json({ error: 'Job not found', details: 'Job not found or you do not have access' });
-    }
+//   try {
+//     const [jobs] = await pool.query(
+//       `SELECT j.*, s.name AS subcategory_name, c.name AS category_name 
+//        FROM jobs j 
+//        LEFT JOIN subcategories s ON j.subcategory_id = s.id
+//        LEFT JOIN categories c ON j.category_id = c.id
+//        WHERE j.id = ? AND j.user_id = ? AND j.deleted_at IS NULL`,
+//       [id, parseInt(userId)]
+//     );
+//     if (!jobs.length) {
+//       console.log(`GET /api/jobs/${id}: No job found for userId=${userId}`);
+//       return res.status(404).json({ error: 'Job not found', details: 'Job not found or you do not have access' });
+//     }
 
-    const job = jobs[0];
-    const jobWithParsedJSON = {
-      ...job,
-      skills: (() => {
-        try {
-          return JSON.parse(job.skills || '[]');
-        } catch {
-          return typeof job.skills === 'string' ? job.skills.split(',').map(skill => skill.trim()) : [];
-        }
-      })(),
-      recruiterActions: (() => {
-        try {
-          return JSON.parse(job.recruiterActions || '{"invitationSent": false, "resumeDownloaded": false}');
-        } catch {
-          return { invitationSent: false, resumeDownloaded: false };
-        }
-      })(),
-      created_at: job.created_at,
-      applicantCount: job.applicantCount || 0,
-      views: job.views || 0,
-      subcategory: job.subcategory_name || null,
-      category: job.category_name || null,
-    };
+//     const job = jobs[0];
+//     const jobWithParsedJSON = {
+//       ...job,
+//       skills: (() => {
+//         try {
+//           return JSON.parse(job.skills || '[]');
+//         } catch {
+//           return typeof job.skills === 'string' ? job.skills.split(',').map(skill => skill.trim()) : [];
+//         }
+//       })(),
+//       recruiterActions: (() => {
+//         try {
+//           return JSON.parse(job.recruiterActions || '{"invitationSent": false, "resumeDownloaded": false}');
+//         } catch {
+//           return { invitationSent: false, resumeDownloaded: false };
+//         }
+//       })(),
+//       created_at: job.created_at,
+//       applicantCount: job.applicantCount || 0,
+//       views: job.views || 0,
+//       subcategory: job.subcategory_name || null,
+//       category: job.category_name || null,
+//     };
 
-    console.log(`GET /api/jobs/${id}: userId=${userId}, jobId=${id}`);
-    res.json(jobWithParsedJSON);
-  } catch (err) {
-    console.error(`getJobById Error: id=${id}, userId=${userId}`, { message: err.message, stack: err.stack });
-    res.status(500).json({ error: 'Error fetching job', details: err.message });
-  }
-};
+//     console.log(`GET /api/jobs/${id}: userId=${userId}, jobId=${id}`);
+//     res.json(jobWithParsedJSON);
+//   } catch (err) {
+//     console.error(`getJobById Error: id=${id}, userId=${userId}`, { message: err.message, stack: err.stack });
+//     res.status(500).json({ error: 'Error fetching job', details: err.message });
+//   }
+// };
 
 const getApplications = async (req, res) => {
   const { userId } = req.query;
@@ -726,53 +726,32 @@ export const updateJob = async (req, res) => {
 
 
 
-
-
-      export const deleteJob = async (req, res) => {
+export const deleteJob = async (req, res) => {
   const { id } = req.params;
-  const userId = req.user?.id; 
+  const userId = req.user?.id;
 
-  if (!userId) {
-    return res.status(401).json({
-      error: 'Authentication required',
-      details: 'User must be logged in',
-    });
-  }
+  if (!userId) return res.status(401).json({ error: 'Authentication required' });
 
   try {
-    // Check if the job exists and belongs to the user
     const [job] = await pool.query(
-      'SELECT id FROM jobs WHERE id = ? AND user_id = ? AND deleted_at IS NULL',
+      'SELECT id FROM jobs WHERE id = ? AND user_id = ?',
       [id, userId]
     );
 
-    if (!job.length) {
-      return res.status(404).json({
-        error: 'Job not found',
-        details: 'Job not found or you are not authorized to delete it',
-      });
-    }
+    if (!job.length) return res.status(404).json({ error: 'Job not found or unauthorized' });
 
-    // Soft delete the job
-    await pool.query(
-      'UPDATE jobs SET deleted_at = NOW() WHERE id = ? AND user_id = ?',
-      [id, userId]
-    );
+    // HARD DELETE
+    await pool.query('DELETE FROM jobs WHERE id = ? AND user_id = ?', [id, userId]);
 
-    return res.json({
-      message: 'Job deleted successfully',
-      jobId: id,
-    });
+    return res.json({ message: 'Job deleted permanently', jobId: id });
   } catch (err) {
-    console.error(`deleteJob Error: jobId=${id}, userId=${userId}`, err);
-    return res.status(500).json({
-      error: 'Error deleting job',
-      details: err.message,
-    });
+    console.error('deleteJob Error:', err);
+    return res.status(500).json({ error: 'Error deleting job', details: err.message });
   }
 };
 
-     export const bulkDeleteJobs = async (req, res) => {
+
+export const bulkDeleteJobs = async (req, res) => {
   const userId = req.user?.id;
   const { jobIds } = req.body;
 
@@ -785,7 +764,7 @@ export const updateJob = async (req, res) => {
 
     // Validate jobs
     const [jobs] = await conn.query(
-      `SELECT id FROM jobs WHERE id IN (${jobIds.map(() => '?').join(',')}) AND user_id = ? AND deleted_at IS NULL`,
+      `SELECT id FROM jobs WHERE id IN (${jobIds.map(() => '?').join(',')}) AND user_id = ?`,
       [...jobIds, userId]
     );
 
@@ -795,16 +774,14 @@ export const updateJob = async (req, res) => {
       return res.status(404).json({ error: 'No valid jobs to delete' });
     }
 
-    // Soft delete
+    // HARD DELETE
     const [result] = await conn.query(
-      `UPDATE jobs SET deleted_at = NOW() WHERE id IN (${validJobIds.map(() => '?').join(',')}) AND user_id = ?`,
+      `DELETE FROM jobs WHERE id IN (${validJobIds.map(() => '?').join(',')}) AND user_id = ?`,
       [...validJobIds, userId]
     );
 
     await conn.commit();
-
-    console.log('bulkDeleteJobs affectedRows:', result.affectedRows);
-    res.json({ message: 'Jobs deleted successfully', deletedJobIds: validJobIds });
+    res.json({ message: 'Jobs deleted permanently', deletedJobIds: validJobIds });
   } catch (err) {
     await conn.rollback();
     console.error('bulkDeleteJobs Error:', err);
@@ -813,6 +790,7 @@ export const updateJob = async (req, res) => {
     conn.release();
   }
 };
+
 
 
 const toggleJobStatus = async (req, res) => {
@@ -1136,7 +1114,7 @@ export const getApplicantsForEmployer = async (req, res) => {
 export default {
   getJobs,
   getPostedJobs,
-  getJobById,
+  // getJobById,
   getApplicantsByJob,
   getJobsByCategory,
   createJob,
