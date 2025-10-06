@@ -1,26 +1,27 @@
 import pool from '../config/db.js';
 
-export const getSubcategoriesByCategoryId = async (req, res) => {
-  const { category_id } = req.query;
+// GET subcategories by category name
+export const getSubcategoriesByCategoryName = async (req, res) => {
+  const { category_name } = req.query;
 
-  if (!category_id) {
-    return res.status(400).json({ error: 'category_id is required' });
-  }
-
-  const categoryId = parseInt(category_id, 10);
-  if (isNaN(categoryId)) {
-    return res.status(400).json({ error: 'category_id must be a valid number' });
+  if (!category_name) {
+    return res.status(400).json({ error: 'category_name is required' });
   }
 
   try {
+    // Find category by name
     const [category] = await pool.query(
-      `SELECT id FROM categories WHERE id = ?`,
-      [categoryId]
+      `SELECT id, name FROM categories WHERE name = ?`,
+      [category_name]
     );
+
     if (!category.length) {
       return res.status(404).json({ error: 'Category not found' });
     }
 
+    const categoryId = category[0].id;
+
+    // Fetch subcategories
     const sql = `
       SELECT 
         s.id,
@@ -42,9 +43,9 @@ export const getSubcategoriesByCategoryId = async (req, res) => {
       category_id: sub.category_id,
     }));
 
-    res.json({ subcategories: normalizedSubcategories });
+    res.json({ category: category[0].name, subcategories: normalizedSubcategories });
   } catch (error) {
-    console.error('Error in getSubcategoriesByCategoryId:', {
+    console.error('Error fetching subcategories by category name:', {
       message: error.message,
       code: error.code || 'N/A',
       sqlMessage: error.sqlMessage || 'N/A',
@@ -59,131 +60,97 @@ export const getSubcategoriesByCategoryId = async (req, res) => {
   }
 };
 
+// CREATE a new subcategory by category name
 export const createSubcategory = async (req, res) => {
-  const { categoryId } = req.params;
+  const { category_name } = req.params; // assume category_name in params
   const { name } = req.body;
 
-  if (!name) {
-    return res.status(400).json({ error: 'Name is required' });
-  }
-
-  const categoryIdNum = parseInt(categoryId, 10);
-  if (isNaN(categoryIdNum)) {
-    return res.status(400).json({ error: 'categoryId must be a valid number' });
-  }
+  if (!name) return res.status(400).json({ error: 'Name is required' });
 
   try {
     const [category] = await pool.query(
-      `SELECT id FROM categories WHERE id = ?`,
-      [categoryIdNum]
+      `SELECT id FROM categories WHERE name = ?`,
+      [category_name]
     );
-    if (!category.length) {
-      return res.status(404).json({ error: 'Category not found' });
-    }
+
+    if (!category.length) return res.status(404).json({ error: 'Category not found' });
+
+    const categoryId = category[0].id;
 
     const [result] = await pool.query(
       `INSERT INTO subcategories (name, category_id) VALUES (?, ?)`,
-      [name, categoryIdNum]
+      [name, categoryId]
     );
 
     res.status(201).json({
       id: result.insertId,
       name,
-      category_id: categoryIdNum,
+      category_id: categoryId,
       open_positions: 0,
     });
   } catch (error) {
-    console.error('Error in createSubcategory:', {
-      message: error.message,
-      code: error.code || 'N/A',
-      sqlMessage: error.sqlMessage || 'N/A',
-      stack: error.stack,
-    });
-    res.status(500).json({ 
-      error: 'Failed to create subcategory', 
-      details: error.message,
-    });
+    console.error('Error creating subcategory:', error);
+    res.status(500).json({ error: 'Failed to create subcategory', details: error.message });
   }
 };
 
+// UPDATE subcategory by category name
 export const updateSubcategory = async (req, res) => {
-  const { categoryId, subId } = req.params;
+  const { category_name, subId } = req.params;
   const { name } = req.body;
 
-  if (!name) {
-    return res.status(400).json({ error: 'Name is required' });
-  }
-
-  const categoryIdNum = parseInt(categoryId, 10);
-  const subIdNum = parseInt(subId, 10);
-  if (isNaN(categoryIdNum) || isNaN(subIdNum)) {
-    return res.status(400).json({ error: 'categoryId and subId must be valid numbers' });
-  }
+  if (!name) return res.status(400).json({ error: 'Name is required' });
 
   try {
-    const [subcategory] = await pool.query(
-      `SELECT id FROM subcategories WHERE id = ? AND category_id = ?`,
-      [subIdNum, categoryIdNum]
+    const [category] = await pool.query(
+      `SELECT id FROM categories WHERE name = ?`,
+      [category_name]
     );
-    if (!subcategory.length) {
-      return res.status(404).json({ error: 'Subcategory not found' });
-    }
+    if (!category.length) return res.status(404).json({ error: 'Category not found' });
+
+    const categoryId = category[0].id;
+    const subIdNum = parseInt(subId, 10);
+    if (isNaN(subIdNum)) return res.status(400).json({ error: 'Invalid subId' });
 
     const [result] = await pool.query(
       `UPDATE subcategories SET name = ? WHERE id = ? AND category_id = ?`,
-      [name, subIdNum, categoryIdNum]
+      [name, subIdNum, categoryId]
     );
 
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ error: 'Subcategory not found' });
-    }
+    if (result.affectedRows === 0) return res.status(404).json({ error: 'Subcategory not found' });
 
     res.json({ message: 'Subcategory updated successfully' });
   } catch (error) {
-    console.error('Error in updateSubcategory:', {
-      message: error.message,
-      code: error.code || 'N/A',
-      sqlMessage: error.sqlMessage || 'N/A',
-      stack: error.stack,
-    });
-    res.status(500).json({ 
-      error: 'Failed to update subcategory', 
-      details: error.message,
-    });
+    console.error('Error updating subcategory:', error);
+    res.status(500).json({ error: 'Failed to update subcategory', details: error.message });
   }
 };
 
-// DELETE subcategory
+// DELETE subcategory by category name
 export const deleteSubcategory = async (req, res) => {
-  const { categoryId, subId } = req.params;
-
-  const categoryIdNum = parseInt(categoryId, 10);
-  const subIdNum = parseInt(subId, 10);
-  if (isNaN(categoryIdNum) || isNaN(subIdNum)) {
-    return res.status(400).json({ error: 'categoryId and subId must be valid numbers' });
-  }
+  const { category_name, subId } = req.params;
 
   try {
+    const [category] = await pool.query(
+      `SELECT id FROM categories WHERE name = ?`,
+      [category_name]
+    );
+    if (!category.length) return res.status(404).json({ error: 'Category not found' });
+
+    const categoryId = category[0].id;
+    const subIdNum = parseInt(subId, 10);
+    if (isNaN(subIdNum)) return res.status(400).json({ error: 'Invalid subId' });
+
     const [result] = await pool.query(
       `DELETE FROM subcategories WHERE id = ? AND category_id = ?`,
-      [subIdNum, categoryIdNum]
+      [subIdNum, categoryId]
     );
 
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ error: 'Subcategory not found' });
-    }
+    if (result.affectedRows === 0) return res.status(404).json({ error: 'Subcategory not found' });
 
     res.json({ message: 'Subcategory deleted successfully' });
   } catch (error) {
-    console.error('Error in deleteSubcategory:', {
-      message: error.message,
-      code: error.code || 'N/A',
-      sqlMessage: error.sqlMessage || 'N/A',
-      stack: error.stack,
-    });
-    res.status(500).json({ 
-      error: 'Failed to delete subcategory', 
-      details: error.message,
-    });
+    console.error('Error deleting subcategory:', error);
+    res.status(500).json({ error: 'Failed to delete subcategory', details: error.message });
   }
 };

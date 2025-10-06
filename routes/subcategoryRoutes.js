@@ -1,6 +1,6 @@
 import express from 'express';
 import {
-  getSubcategoriesByCategoryId,
+  getSubcategoriesByCategoryName, // updated function name
   createSubcategory,
   updateSubcategory,
   deleteSubcategory,
@@ -9,12 +9,12 @@ import authenticate from '../middleware/auth.js';
 
 const router = express.Router();
 
-// Public route
-router.get('/', getSubcategoriesByCategoryId);
+// Public route: fetch subcategories by category name
+router.get('/', getSubcategoriesByCategoryName);
 
-// Admin-only routes
-router.post('/:categoryId', authenticate, createSubcategory);
-router.put('/:categoryId/:subId', authenticate, updateSubcategory);
-router.delete('/:categoryId/:subId', authenticate, deleteSubcategory);
+// Admin-only routes: still require category name in URL
+router.post('/:category_name', authenticate, createSubcategory);
+router.put('/:category_name/:subId', authenticate, updateSubcategory);
+router.delete('/:category_name/:subId', authenticate, deleteSubcategory);
 
 export default router;

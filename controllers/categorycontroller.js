@@ -15,8 +15,7 @@ export const getCategories = async (req, res) => {
         c.icon_color AS iconColor,
         COUNT(j.id) AS openPositions
       FROM categories c
-      LEFT JOIN jobs j ON c.id = j.category_id
-      WHERE j.deleted_at IS NULL OR j.id IS NULL
+      LEFT JOIN jobs j ON c.id = j.category_id AND j.deleted_at IS NULL
       GROUP BY c.id, c.name, c.icon, c.bg_color, c.icon_color
     `);
 
@@ -31,7 +30,7 @@ export const getCategories = async (req, res) => {
 
     res.json(normalizedCategories);
   } catch (error) {
-    console.log("err",error)
+    console.error('Error fetching categories:', error);
     res.status(500).json({ error: 'Failed to fetch categories', details: error.message });
   }
 };
@@ -41,8 +40,7 @@ export const getCategoryById = async (req, res) => {
   const { id } = req.params;
 
   try {
-    const [categories] = await pool.query(
-      `
+    const [categories] = await pool.query(`
       SELECT 
         c.id,
         c.name,
@@ -51,29 +49,28 @@ export const getCategoryById = async (req, res) => {
         c.icon_color AS iconColor,
         COUNT(j.id) AS openPositions
       FROM categories c
-      LEFT JOIN jobs j ON c.id = j.category_id
-      WHERE c.id = ? AND (j.deleted_at IS NULL OR j.id IS NULL)
+      LEFT JOIN jobs j ON c.id = j.category_id AND j.deleted_at IS NULL
+      WHERE c.id = ?
       GROUP BY c.id, c.name, c.icon, c.bg_color, c.icon_color
-      `,
-      [id]
-    );
+    `, [id]);
 
     if (!categories.length) {
       return res.status(404).json({ error: 'Category not found' });
     }
 
+    const cat = categories[0];
     const category = {
-      id: categories[0].id,
-      name: categories[0].name || 'Unnamed Category',
-      icon: validIcons.includes(categories[0].icon) ? categories[0].icon : 'Briefcase',
-      bgColor: categories[0].bgColor || 'bg-blue-100',
-      iconColor: categories[0].iconColor || 'text-blue-700',
-      openPositions: Number(categories[0].openPositions) || 0,
+      id: cat.id,
+      name: cat.name || 'Unnamed Category',
+      icon: validIcons.includes(cat.icon) ? cat.icon : 'Briefcase',
+      bgColor: cat.bgColor || 'bg-blue-100',
+      iconColor: cat.iconColor || 'text-blue-700',
+      openPositions: Number(cat.openPositions) || 0,
     };
 
     res.json(category);
   } catch (error) {
-    console.log("er",error)
+    console.error('Error fetching category:', error);
     res.status(500).json({ error: 'Failed to fetch category', details: error.message });
   }
 };
@@ -106,6 +103,7 @@ export const createCategory = async (req, res) => {
 
     res.status(201).json(newCategory);
   } catch (error) {
+    console.error('Error creating category:', error);
     res.status(500).json({ error: 'Failed to create category', details: error.message });
   }
 };
@@ -134,6 +132,7 @@ export const updateCategory = async (req, res) => {
 
     res.json({ message: 'Category updated successfully' });
   } catch (error) {
+    console.error('Error updating category:', error);
     res.status(500).json({ error: 'Failed to update category', details: error.message });
   }
 };
@@ -151,6 +150,7 @@ export const deleteCategory = async (req, res) => {
 
     res.json({ message: 'Category deleted successfully' });
   } catch (error) {
+    console.error('Error deleting category:', error);
     res.status(500).json({ error: 'Failed to delete category', details: error.message });
   }
 };

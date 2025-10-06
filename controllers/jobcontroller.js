@@ -979,6 +979,51 @@ const getApplicantsByJob = async (req, res) => {
 };
 
 
+
+
+
+
+// Get jobs by category or subcategory name
+export const getJobsByCategoryOrSubcategory = async (req, res) => {
+  const { category_name, subcategory_name } = req.query;
+
+  try {
+    let sql;
+    let params = [];
+
+    if (subcategory_name) {
+      sql = `
+        SELECT j.*, s.name AS subcategory_name, c.name AS category_name
+        FROM jobs j
+        JOIN subcategories s ON j.subcategory_id = s.id
+        JOIN categories c ON s.category_id = c.id
+        WHERE s.name = ? AND j.deleted_at IS NULL
+      `;
+      params = [subcategory_name];
+    } else if (category_name) {
+      sql = `
+        SELECT j.*, s.name AS subcategory_name, c.name AS category_name
+        FROM jobs j
+        JOIN subcategories s ON j.subcategory_id = s.id
+        JOIN categories c ON s.category_id = c.id
+        WHERE c.name = ? AND j.deleted_at IS NULL
+      `;
+      params = [category_name];
+    } else {
+      return res.status(400).json({ error: 'Provide category_name or subcategory_name' });
+    }
+
+    const [jobs] = await pool.query(sql, params);
+
+    res.json({ jobs });
+  } catch (error) {
+    console.error('Error fetching jobs:', error);
+    res.status(500).json({ error: 'Failed to fetch jobs', details: error.message });
+  }
+};
+
+
+
 // Version 1: applyToJob without user_id in applications table
 const applyToJob = async (req, res) => {
   const jobId = parseInt(req.params.jobId, 10);
@@ -1108,4 +1153,5 @@ export default {
   getSkills,
   addSkill,
   getApplicantsForEmployer,
+   getJobsByCategoryOrSubcategory
 };
