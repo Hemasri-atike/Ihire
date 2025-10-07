@@ -48,7 +48,7 @@ router.post('/create-job', authenticate, jobController.createJob);
 router.put('/:id/updatejob', authenticate, jobController.updateJob);
 router.delete('/:id/deletejobs', authenticate, jobController.deleteJob);
 router.post('/bulk-delete', authenticate, jobController.bulkDeleteJobs);
-router.patch('/:id', authenticate, jobController.toggleJobStatus);
+router.patch('/:id/toggle-status', authenticate, jobController.toggleJobStatus);
 
 
 router.post('/:jobId/apply', authenticate, upload, jobController.applyToJob);
