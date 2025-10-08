@@ -40,6 +40,8 @@ router.get('/by-category',  jobController.getJobsByCategoryOrSubcategory);
 
 router.get('/getalljobs', jobController.getJobs);
 router.get('/', jobController.getJobs);
+router.get('/:jobId', jobController.getJobById);
+
 router.get('/posted', authenticate, jobController.getPostedJobs);
 // router.get('/:id', authenticate, jobController.getJobById);
 router.get('/:jobId/applicants', authenticate, jobController.getApplicantsByJob);

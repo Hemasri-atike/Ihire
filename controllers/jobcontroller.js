@@ -156,59 +156,6 @@ const getPostedJobs = async (req, res) => {
   }
 };
 
-// const getJobById = async (req, res) => {
-//   const { id } = req.params;
-//   const { userId } = req.query;
-
-//   if (!userId) {
-//     return res.status(400).json({ error: 'User ID required', details: 'userId query parameter is missing' });
-//   }
-
-//   try {
-//     const [jobs] = await pool.query(
-//       `SELECT j.*, s.name AS subcategory_name, c.name AS category_name 
-//        FROM jobs j 
-//        LEFT JOIN subcategories s ON j.subcategory_id = s.id
-//        LEFT JOIN categories c ON j.category_id = c.id
-//        WHERE j.id = ? AND j.user_id = ? AND j.deleted_at IS NULL`,
-//       [id, parseInt(userId)]
-//     );
-//     if (!jobs.length) {
-//       console.log(`GET /api/jobs/${id}: No job found for userId=${userId}`);
-//       return res.status(404).json({ error: 'Job not found', details: 'Job not found or you do not have access' });
-//     }
-
-//     const job = jobs[0];
-//     const jobWithParsedJSON = {
-//       ...job,
-//       skills: (() => {
-//         try {
-//           return JSON.parse(job.skills || '[]');
-//         } catch {
-//           return typeof job.skills === 'string' ? job.skills.split(',').map(skill => skill.trim()) : [];
-//         }
-//       })(),
-//       recruiterActions: (() => {
-//         try {
-//           return JSON.parse(job.recruiterActions || '{"invitationSent": false, "resumeDownloaded": false}');
-//         } catch {
-//           return { invitationSent: false, resumeDownloaded: false };
-//         }
-//       })(),
-//       created_at: job.created_at,
-//       applicantCount: job.applicantCount || 0,
-//       views: job.views || 0,
-//       subcategory: job.subcategory_name || null,
-//       category: job.category_name || null,
-//     };
-
-//     console.log(`GET /api/jobs/${id}: userId=${userId}, jobId=${id}`);
-//     res.json(jobWithParsedJSON);
-//   } catch (err) {
-//     console.error(`getJobById Error: id=${id}, userId=${userId}`, { message: err.message, stack: err.stack });
-//     res.status(500).json({ error: 'Error fetching job', details: err.message });
-//   }
-// };
 
 const getApplications = async (req, res) => {
   const { userId } = req.query;
@@ -378,15 +325,193 @@ export const addSkill = async (req, res) => {
 
 
 
+// export const createJob = async (req, res) => {
+//   // ✅ Extract job data from body
+//   const {
+//     title,
+//     company_name,
+//     location,
+//     description,
+//     category_id,
+//     subcategory_id,
+//     salary,
+//     type,
+//     experience,
+//     deadline,
+//     skills,
+//     status,
+//     contactPerson,
+//     role,
+//     startDate,
+//     vacancies,
+//   } = req.body;
+
+//   // ✅ Get user_id from JWT
+//   const user_id = req.user?.id;
+//   if (!user_id) {
+//     return res.status(401).json({
+//       error: 'Authentication required',
+//       details: 'Valid token with user ID is required',
+//     });
+//   }
+
+//   // ✅ Validate required fields (exclude user_id because we take it from JWT)
+//   const requiredFields = [
+//     'title',
+//     'company_name',
+//     'location',
+//     'description',
+//     'category_id',
+//     'type',
+//     'deadline',
+//   ];
+//   const validationError = validateRequiredFields(requiredFields, req.body, res);
+//   if (validationError) return validationError;
+
+//   let conn;
+//   try {
+//     conn = await pool.getConnection();
+
+//     // 🔹 Validate category
+//     const [categoryResult] = await conn.query(
+//       'SELECT id, name FROM categories WHERE id = ?',
+//       [parseInt(category_id)]
+//     );
+//     if (!categoryResult.length) {
+//       return res.status(400).json({ error: 'Invalid category_id' });
+//     }
+
+//     // 🔹 Validate subcategory
+//     let subcategoryName = null;
+//     if (subcategory_id) {
+//       const [subcategoryResult] = await conn.query(
+//         'SELECT id, name FROM subcategories WHERE id = ? AND category_id = ?',
+//         [parseInt(subcategory_id), parseInt(category_id)]
+//       );
+//       if (!subcategoryResult.length) {
+//         return res.status(400).json({
+//           error: 'Invalid subcategory_id',
+//           details: 'Subcategory does not belong to the selected category',
+//         });
+//       }
+//       subcategoryName = subcategoryResult[0].name;
+//     }
+
+//     // 🔹 Validate skills
+//     if (skills && Array.isArray(skills) && skills.length > 0) {
+//       const [validSkills] = await conn.query(
+//         'SELECT skill FROM job_skills WHERE skill IN (?)',
+//         [skills]
+//       );
+//       const validSkillNames = validSkills.map(s => s.skill);
+//       const invalidSkills = skills.filter(s => !validSkillNames.includes(s));
+//       if (invalidSkills.length > 0) {
+//         return res.status(400).json({
+//           error: 'Invalid skills',
+//           details: `Skills not found in database: ${invalidSkills.join(', ')}`,
+//         });
+//       }
+//     }
+
+//     // 🔹 Check user exists
+//     const [userResult] = await conn.query(
+//       'SELECT id FROM users WHERE id = ?',
+//       [parseInt(user_id)]
+//     );
+//     if (!userResult.length) {
+//       return res.status(400).json({
+//         error: 'Invalid user_id',
+//         details: 'User does not exist',
+//       });
+//     }
+
+//     // 🔹 Insert job
+//     const [result] = await conn.query(
+//       `INSERT INTO jobs (
+//         title, company_name, location, description, category_id, subcategory_id, 
+//         salary, type, experience, deadline, skills, status, contactPerson, 
+//         role, startDate, vacancies, user_id
+//       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+//       [
+//         title.substring(0, 255),
+//         company_name.substring(0, 255),
+//         location.substring(0, 100),
+//         description.substring(0, 5000),
+//         parseInt(category_id),
+//         subcategory_id ? parseInt(subcategory_id) : null,
+//         salary ? parseFloat(salary) : 0,
+//         type?.substring(0, 50) ?? null,
+//         experience?.substring(0, 100) ?? null,
+//         deadline ? new Date(deadline).toISOString().split('T')[0] : null,
+//         JSON.stringify(skills || []),
+//         status?.substring(0, 50) ?? 'Draft',
+//         contactPerson?.substring(0, 100) ?? null,
+//         role?.substring(0, 100) ?? null,
+//         startDate ? new Date(startDate).toISOString().split('T')[0] : null,
+//         vacancies ? parseInt(vacancies) : 1,
+//         parseInt(user_id),
+//       ]
+//     );
+
+//     // 🔹 Response object
+//     const newJob = {
+//       id: result.insertId,
+//       title,
+//       company_name,
+//       location,
+//       description,
+//       category_id: parseInt(category_id),
+//       subcategory_id: subcategory_id ? parseInt(subcategory_id) : null,
+//       category: categoryResult[0].name,
+//       subcategory: subcategoryName,
+//       salary: salary ? parseFloat(salary) : 0,
+//       type,
+//       experience,
+//       deadline,
+//       skills: skills || [],
+//       status: status || 'Draft',
+//       contactPerson,
+//       role,
+//       startDate,
+//       vacancies: vacancies || 1,
+//       user_id: parseInt(user_id),
+//       created_at: new Date(),
+//       views: 0,
+//       applicantCount: 0,
+//     };
+
+//     console.log(
+//       `POST /api/jobs: Created job id=${result.insertId} by user_id=${user_id}`
+//     );
+
+//     return res.status(201).json(newJob);
+//   } catch (err) {
+//     console.error('createJob Error:', {
+//       user_id,
+//       message: err.message,
+//       stack: err.stack,
+//     });
+//     return res
+//       .status(500)
+//       .json({ error: 'Failed to create job', details: err.message });
+//   } finally {
+//     if (conn) conn.release();
+//   }
+// };
 export const createJob = async (req, res) => {
   // ✅ Extract job data from body
   const {
     title,
     company_name,
+    about_company,
+    education_required,
+    required_skills_text,
+    state,
+    city,
     location,
     description,
-    category_id,
-    subcategory_id,
+    category_name,
+    subcategory_name,
     salary,
     type,
     experience,
@@ -412,9 +537,13 @@ export const createJob = async (req, res) => {
   const requiredFields = [
     'title',
     'company_name',
+    'about_company',
+    'education_required',
+    'state',
+    'city',
     'location',
     'description',
-    'category_id',
+    'category_name',
     'type',
     'deadline',
   ];
@@ -427,26 +556,29 @@ export const createJob = async (req, res) => {
 
     // 🔹 Validate category
     const [categoryResult] = await conn.query(
-      'SELECT id, name FROM categories WHERE id = ?',
-      [parseInt(category_id)]
+      'SELECT id, name FROM categories WHERE name = ?',
+      [category_name]
     );
     if (!categoryResult.length) {
-      return res.status(400).json({ error: 'Invalid category_id' });
+      return res.status(400).json({ error: 'Invalid category_name' });
     }
+    const category_id = categoryResult[0].id;
 
     // 🔹 Validate subcategory
+    let subcategory_id = null;
     let subcategoryName = null;
-    if (subcategory_id) {
+    if (subcategory_name) {
       const [subcategoryResult] = await conn.query(
-        'SELECT id, name FROM subcategories WHERE id = ? AND category_id = ?',
-        [parseInt(subcategory_id), parseInt(category_id)]
+        'SELECT id, name FROM subcategories WHERE name = ? AND category_id = ?',
+        [subcategory_name, category_id]
       );
       if (!subcategoryResult.length) {
         return res.status(400).json({
-          error: 'Invalid subcategory_id',
+          error: 'Invalid subcategory_name',
           details: 'Subcategory does not belong to the selected category',
         });
       }
+      subcategory_id = subcategoryResult[0].id;
       subcategoryName = subcategoryResult[0].name;
     }
 
@@ -481,17 +613,23 @@ export const createJob = async (req, res) => {
     // 🔹 Insert job
     const [result] = await conn.query(
       `INSERT INTO jobs (
-        title, company_name, location, description, category_id, subcategory_id, 
+        title, company_name, about_company, education_required, required_skills_text,
+        state, city, location, description, category_id, subcategory_id, 
         salary, type, experience, deadline, skills, status, contactPerson, 
         role, startDate, vacancies, user_id
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         title.substring(0, 255),
         company_name.substring(0, 255),
+        about_company.substring(0, 1000),
+        education_required.substring(0, 500),
+        required_skills_text ? required_skills_text.substring(0, 1000) : null,
+        state.substring(0, 100),
+        city.substring(0, 100),
         location.substring(0, 100),
         description.substring(0, 5000),
-        parseInt(category_id),
-        subcategory_id ? parseInt(subcategory_id) : null,
+        category_id,
+        subcategory_id,
         salary ? parseFloat(salary) : 0,
         type?.substring(0, 50) ?? null,
         experience?.substring(0, 100) ?? null,
@@ -511,12 +649,17 @@ export const createJob = async (req, res) => {
       id: result.insertId,
       title,
       company_name,
+      about_company,
+      education_required,
+      required_skills_text,
+      state,
+      city,
       location,
       description,
-      category_id: parseInt(category_id),
-      subcategory_id: subcategory_id ? parseInt(subcategory_id) : null,
-      category: categoryResult[0].name,
-      subcategory: subcategoryName,
+      category_id,
+      subcategory_id,
+      category: category_name,
+      subcategory: subcategoryName || null,
       salary: salary ? parseFloat(salary) : 0,
       type,
       experience,
@@ -553,16 +696,20 @@ export const createJob = async (req, res) => {
 };
 
 
-
 export const updateJob = async (req, res) => {
   const { id } = req.params;
   const {
     title,
     company_name,
+    about_company,
+    education_required,
+    required_skills_text,
+    state,
+    city,
     location,
     description,
-    category_id,
-    subcategory_id,
+    category_name,
+    subcategory_name,
     salary,
     type,
     experience,
@@ -588,9 +735,13 @@ export const updateJob = async (req, res) => {
   const requiredFields = [
     'title',
     'company_name',
+    'about_company',
+    'education_required',
+    'state',
+    'city',
     'location',
     'description',
-    'category_id',
+    'category_name',
     'type',
     'deadline',
   ];
@@ -612,26 +763,29 @@ export const updateJob = async (req, res) => {
 
     // 🔹 Validate category
     const [categoryResult] = await conn.query(
-      'SELECT id, name FROM categories WHERE id = ?',
-      [parseInt(category_id)]
+      'SELECT id, name FROM categories WHERE name = ?',
+      [category_name]
     );
     if (!categoryResult.length) {
-      return res.status(400).json({ error: 'Invalid category_id' });
+      return res.status(400).json({ error: 'Invalid category_name' });
     }
+    const category_id = categoryResult[0].id;
 
     // 🔹 Validate subcategory
+    let subcategory_id = null;
     let subcategoryName = null;
-    if (subcategory_id) {
+    if (subcategory_name) {
       const [subcategoryResult] = await conn.query(
-        'SELECT id, name FROM subcategories WHERE id = ? AND category_id = ?',
-        [parseInt(subcategory_id), parseInt(category_id)]
+        'SELECT id, name FROM subcategories WHERE name = ? AND category_id = ?',
+        [subcategory_name, category_id]
       );
       if (!subcategoryResult.length) {
         return res.status(400).json({
-          error: 'Invalid subcategory_id',
+          error: 'Invalid subcategory_name',
           details: 'Subcategory does not belong to the selected category',
         });
       }
+      subcategory_id = subcategoryResult[0].id;
       subcategoryName = subcategoryResult[0].name;
     }
 
@@ -654,7 +808,8 @@ export const updateJob = async (req, res) => {
     // 🔹 Update job
     const query = `
       UPDATE jobs 
-      SET title = ?, company_name = ?, location = ?, description = ?, 
+      SET title = ?, company_name = ?, about_company = ?, education_required = ?, required_skills_text = ?,
+          state = ?, city = ?, location = ?, description = ?, 
           category_id = ?, subcategory_id = ?, salary = ?, type = ?, experience = ?, 
           deadline = ?, skills = ?, status = ?, contactPerson = ?, 
           role = ?, startDate = ?, vacancies = ?
@@ -663,10 +818,15 @@ export const updateJob = async (req, res) => {
     const values = [
       title.substring(0, 255),
       company_name.substring(0, 255),
+      about_company.substring(0, 1000),
+      education_required.substring(0, 500),
+      required_skills_text ? required_skills_text.substring(0, 1000) : null,
+      state.substring(0, 100),
+      city.substring(0, 100),
       location.substring(0, 100),
       description.substring(0, 5000),
-      parseInt(category_id),
-      subcategory_id ? parseInt(subcategory_id) : null,
+      category_id,
+      subcategory_id,
       salary ? parseFloat(salary) : 0,
       type?.substring(0, 50) ?? null,
       experience?.substring(0, 100) ?? null,
@@ -688,12 +848,17 @@ export const updateJob = async (req, res) => {
       id,
       title,
       company_name,
+      about_company,
+      education_required,
+      required_skills_text,
+      state,
+      city,
       location,
       description,
-      category_id: parseInt(category_id),
-      subcategory_id: subcategory_id ? parseInt(subcategory_id) : null,
-      category: categoryResult[0].name,
-      subcategory: subcategoryName,
+      category_id,
+      subcategory_id,
+      category: category_name,
+      subcategory: subcategoryName || null,
       salary: salary ? parseFloat(salary) : 0,
       type,
       experience,
@@ -790,6 +955,24 @@ export const bulkDeleteJobs = async (req, res) => {
     conn.release();
   }
 };
+
+
+export const getJobById = async (req, res) => {
+  try {
+    const { jobId } = req.params;
+    const [rows] = await pool.query('SELECT * FROM jobs WHERE id = ?', [jobId]);
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Not Found', details: 'Job not found' });
+    }
+
+    res.json(rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error', details: err.message });
+  }
+};
+
 
 
 
@@ -1125,6 +1308,7 @@ export default {
   applyToJob, // Use applyToJob (Version 1) or applyToJobWithUserId (Version 2) based on schema
   getApplications,
   getUserApplications,
+  getJobById ,
  
   getInterviews,
   getAnalytics,
