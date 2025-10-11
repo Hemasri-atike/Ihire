@@ -25,7 +25,7 @@ import profileRoutes from "./routes/profileRoutes.js";
 import resumeRoutes from "./routes/resumeRoutes.js";
 import empRoutes from "./routes/empRoutes.js";
 import subcategoryRoutes from "./routes/subcategoryRoutes.js";
-
+import employerRoutes from "./routes/employerRoutes.js"
 
 dotenv.config();
 
@@ -80,9 +80,9 @@ const app = express();
 // Middleware
 app.use(
   cors({
-    origin: ["http://localhost:5000", "http://localhost:5173"],
-    methods: ["GET", "POST", "PUT", "DELETE"],
-   
+    origin: ["http://localhost:3000","http://localhost:5173"],
+    methods: ["GET", "POST", "PUT", "DELETE","PATCH"],
+       credentials: true,
   })
 );
 app.use(express.json());
@@ -106,6 +106,20 @@ app.use(
   ]),
   applicationRoutes
 );
+
+
+
+app.use("/api/employer",employerRoutes)
+
+
+
+
+
+
+
+
+
+
 // app.use("/api", applicantRoutes);
 app.use("/api/companies",  companyRoutes);
 app.use("/api/dashboard", authenticate, dashboardRoutes);
