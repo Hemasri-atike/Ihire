@@ -8,6 +8,5 @@ router.post("/company", employerCompanyRegister);
 router.get("/:userId", getEmployer)
 router.patch("/update-user",userUpdate);
 router.post('/login', employerLogin)
-
 router.get ("/getemployercompany",getEmployerCompany)
 export default router;

@@ -273,7 +273,6 @@ export const userUpdate = async (req, res) => {
   }
 };
 
-
 export const getEmployerCompany = async (req, res) => {
   let connection;
   try {
