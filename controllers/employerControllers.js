@@ -316,7 +316,7 @@ export const getEmployerCompany = async (req, res) => {
   }
 };
 
-export const getEmployerLogin =  async (req, res) => {
+export const employerLogin =  async (req, res) => {
   try {
     const { email, password } = req.body;
 
