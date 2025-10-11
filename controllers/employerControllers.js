@@ -272,3 +272,83 @@ export const userUpdate = async (req, res) => {
     if (connection) connection.release();
   }
 };
+
+export const getEmployerCompany = async (req, res) => {
+  let connection;
+  try {
+    const { userId } = req.params; 
+
+    if (!userId || isNaN(Number(userId))) {
+      return res.status(400).json({ error: 'Valid userId is required' });
+    }
+
+    connection = await pool.getConnection();
+
+    // Check if employer exists
+    const [employer] = await connection.query('SELECT id, name, email, designation FROM employers WHERE id = ?', [userId]);
+    if (employer.length === 0) {
+      return res.status(404).json({ error: 'Employer not found' });
+    }
+
+    // Fetch company details for this employer
+    const [company] = await connection.query(
+      `SELECT employer_id, name, description, website, logo_url, banner_url, video_url, location, pincode, state, industry, size, established_year
+       FROM companies
+       WHERE employer_id = ?`,
+      [userId]
+    );
+
+    if (company.length === 0) {
+      return res.status(404).json({ error: 'Company not found for this employer' });
+    }
+
+    res.status(200).json({
+      employer: employer[0],
+      company: company[0],
+    });
+
+  } catch (error) {
+    console.error('Get employer company error:', error);
+    res.status(500).json({ error: 'Something went wrong', details: error.message });
+  } finally {
+    if (connection) connection.release();
+  }
+};
+
+export const employerLogin =  async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    const [employers] = await pool.query("SELECT * FROM employers WHERE email = ?", [email]);
+
+    if (employers.length === 0)
+      return res.status(400).json({ error: "Invalid credentials" });
+
+    const user = employers[0];
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch)
+      return res.status(400).json({ error: "Invalid credentials" });
+
+    const token = jwt.sign(
+      { id: user.id, role: user.role },
+      process.env.JWT_SECRET || "your_jwt_secret",
+      { expiresIn: "1d" }
+    );
+
+    res.json({
+      token,
+      user: {
+        id: user.id,
+        full_name: user.full_name,
+        email: user.email,
+        role: user.role,
+        email: user.email,
+        company_name: user.company_name || null,
+      },
+    });
+  } catch (err) {
+    console.error("Error in login:", err.message);
+    res.status(500).json({ error: "Server error", details: err.message });
+  }
+};

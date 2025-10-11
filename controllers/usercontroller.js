@@ -128,39 +128,43 @@ async forgotPassword(req, res) {
   }
 },
 
-  async login(req, res) {
-    try {
-      const { mobile, password } = req.body;
+async login(req, res) {
+  try {
+    const { email, password } = req.body;
 
-      const [users] = await pool.query("SELECT * FROM users WHERE mobile = ?", [mobile]);
-      if (users.length === 0) return res.status(400).json({ error: "Invalid credentials" });
+    const [employers] = await pool.query("SELECT * FROM employers WHERE email = ?", [email]);
 
-      const user = users[0];
-      const isMatch = await bcrypt.compare(password, user.password);
-      if (!isMatch) return res.status(400).json({ error: "Invalid credentials" });
+    if (employers.length === 0)
+      return res.status(400).json({ error: "Invalid credentials" });
 
-      const token = jwt.sign(
-        { id: user.id, role: user.role },
-        process.env.JWT_SECRET || "your_jwt_secret",
-        { expiresIn: "1d" }
-      );
+    const user = employers[0];
 
-      res.json({
-        token,
-        user: {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-          mobile: user.mobile,
-          company_name: user.company_name,
-        },
-      });
-    } catch (err) {
-      console.error("Error in login:", err.message);
-      res.status(500).json({ error: "Server error", details: err.message });
-    }
-  },
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch)
+      return res.status(400).json({ error: "Invalid credentials" });
+
+    const token = jwt.sign(
+      { id: user.id, role: user.role },
+      process.env.JWT_SECRET || "your_jwt_secret",
+      { expiresIn: "1d" }
+    );
+
+    res.json({
+      token,
+      user: {
+        id: user.id,
+        full_name: user.full_name,
+        email: user.email,
+        role: user.role,
+        email: user.email,
+        company_name: user.company_name || null,
+      },
+    });
+  } catch (err) {
+    console.error("Error in login:", err.message);
+    res.status(500).json({ error: "Server error", details: err.message });
+  }
+},
 
   async getUsers(req, res) {
     try {
