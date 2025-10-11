@@ -315,3 +315,41 @@ export const getEmployerCompany = async (req, res) => {
     if (connection) connection.release();
   }
 };
+
+export const getEmployerLogin =  async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    const [employers] = await pool.query("SELECT * FROM employers WHERE email = ?", [email]);
+
+    if (employers.length === 0)
+      return res.status(400).json({ error: "Invalid credentials" });
+
+    const user = employers[0];
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch)
+      return res.status(400).json({ error: "Invalid credentials" });
+
+    const token = jwt.sign(
+      { id: user.id, role: user.role },
+      process.env.JWT_SECRET || "your_jwt_secret",
+      { expiresIn: "1d" }
+    );
+
+    res.json({
+      token,
+      user: {
+        id: user.id,
+        full_name: user.full_name,
+        email: user.email,
+        role: user.role,
+        email: user.email,
+        company_name: user.company_name || null,
+      },
+    });
+  } catch (err) {
+    console.error("Error in login:", err.message);
+    res.status(500).json({ error: "Server error", details: err.message });
+  }
+};
