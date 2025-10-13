@@ -26,7 +26,7 @@ import empRoutes from "./routes/empRoutes.js";
 
 
 
-import employerRoutes from "./routes/employerRoutes.js"
+import employerRoutes from "./routes/recruiterRoutes.js"
 import jobDetailsRoutes from "./routes/jobDetailsRoutes.js"
 import industryRoutes from "./routes/industryRoutes.js"
 dotenv.config();
