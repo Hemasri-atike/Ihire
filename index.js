@@ -123,7 +123,7 @@ app.use("/api/industries", industryRoutes);
 // app.use("/api", applicantRoutes);
 app.use("/api/companies",  companyRoutes);
 app.use("/api/dashboard", authenticate, dashboardRoutes);
-app.use("/api/candidates", authenticate, candidateRoutes);
+app.use("/api/candidates", candidateRoutes);
 app.use("/api/candidates/resume", authenticate, candidateResumeRoutes);
 app.use("/api/jobalerts", authenticate, jobAlertRoutes);
 app.use("/api/categories", categoryRoutes);
