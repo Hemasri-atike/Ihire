@@ -1,20 +1,9 @@
-import express from 'express';
-import {
-  getCategories,
-  getCategoryById,
-  createCategory,
-  updateCategory,
-  deleteCategory,
-} from '../controllers/categorycontroller.js';
-import authenticate from '../middleware/auth.js';
+import express from "express";
+import { getAllCategories ,getJobsByCategorySlug} from "../controllers/categoryController.js"; // make sure casing matches
 
 const router = express.Router();
 
-// Category routes
-router.get('/getCategories', getCategories);
-router.get('/:id', getCategoryById);
-router.post('/createcategory', authenticate, createCategory);
-router.put('/:id', authenticate, updateCategory);
-router.delete('/:id', authenticate, deleteCategory);
+router.get("/", getAllCategories);
+router.get("/:categorySlug", getJobsByCategorySlug);
 
 export default router;

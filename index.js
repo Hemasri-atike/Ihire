@@ -35,6 +35,12 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+
+
+
+
+
+
 // Create upload directories
 const uploadDirs = [
   path.join(__dirname, "Uploads/resumes"),

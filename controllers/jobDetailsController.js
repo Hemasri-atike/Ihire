@@ -51,12 +51,70 @@ export const createJob =async (req, res) => {
   }
 };
 
+
 export const getAllJobs = async (req, res) => {
   try {
-    const [rows] = await pool.query("SELECT * FROM jobs ORDER BY posted_at DESC");
+    const [rows] = await pool.query(`
+      SELECT 
+        j.id,
+        j.title,
+        c.name AS company,
+        COALESCE(c.logo_url, '/uploads/logos/default-logo.png') AS logo, -- Fetch logo_url from companies
+        j.location,
+        CONCAT('$', FORMAT(j.salary_min, 0), '-$', FORMAT(j.salary_max, 0)) AS salary,
+        j.employment_type AS type,
+        JSON_UNQUOTE(j.description) AS description -- Parse JSON description
+      FROM jobs j
+      LEFT JOIN companies c ON j.company_id = c.id
+      ORDER BY j.created_at DESC
+    `);
     res.status(200).json(rows);
   } catch (error) {
     console.error("Error fetching jobs:", error);
-    res.status(500).json({ message: "Error fetching jobs", error });
+    res.status(500).json({ message: "Error fetching jobs", error: error.message });
   }
 };
+
+export const getJobById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const [rows] = await pool.query(`
+      SELECT 
+        j.id,
+        j.title,
+        c.name AS company,
+        COALESCE(c.logo_url, '/uploads/logos/default-logo.png') AS logo,
+        j.location,
+        CONCAT('$', FORMAT(j.salary_min, 0), '-$', FORMAT(j.salary_max, 0)) AS salary,
+        j.employment_type AS type,
+        JSON_UNQUOTE(j.description) AS description,
+        j.responsibilities,
+        j.qualifications,
+        COALESCE(i.name, 'General') AS category
+      FROM jobs j
+      LEFT JOIN companies c ON j.company_id = c.id
+      LEFT JOIN industries i ON j.industry_id = i.id
+      WHERE j.id = ?
+    `, [id]);
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: "Job not found" });
+    }
+
+    const job = {
+      ...rows[0],
+      responsibilities: rows[0].responsibilities || '',
+      qualifications: rows[0].qualifications || '',
+      description: rows[0].description ? JSON.parse(rows[0].description).html || '' : '',
+    };
+
+    res.status(200).json(job);
+  } catch (error) {
+    console.error("Error fetching job:", error);
+    res.status(500).json({ message: "Error fetching job", error: error.message });
+  }
+};
+
+
+
