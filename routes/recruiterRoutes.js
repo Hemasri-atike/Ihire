@@ -7,6 +7,6 @@ router.post("/register", recruiterRegister);
 router.post("/company", recruiterCompanyRegister);
 router.get("/:userId", getRecruiter)
 router.patch("/update-user",updateRecruiter);
-router.post('/login', getRecruiterCompany)
-router.get ("/getemployercompany",RecruiterLogin)
+router.post('/login',  RecruiterLogin )
+router.get ("/getemployercompany", getRecruiterCompany)
 export default router;
