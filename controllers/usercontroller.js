@@ -3,62 +3,59 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 
 const userController = {
-  async register(req, res) {
-    try {
-      const { name, email, password, role, mobile, company_name } = req.body;
+//   async candidateRegister  (req, res)  {
+//   let connection;
+//   try {
+//     const { name, email, password } = req.body;
+//     connection = await pool.getConnection();
 
-      if (!name || !password || !mobile || !email) {
-        return res.status(400).json({ error: "Name, email, mobile, and password are required" });
-      }
+//     const [existingUser] = await connection.query(
+//       "SELECT * FROM users WHERE email = ?",
+//       [email]
+//     );
+//     if (existingUser.length > 0) {
+//       return res.status(400).json({ error: "Email already exists" });
+//     }
 
-      const [existingUsers] = await pool.query(
-        "SELECT * FROM users WHERE mobile = ? OR email = ?",
-        [mobile, email]
-      );
-      if (existingUsers.length > 0) {
-        return res.status(400).json({ error: "Mobile or email already exists" });
-      }
+//     const hashedPassword = await bcrypt.hash(password, 10);
 
-      const hashedPassword = await bcrypt.hash(password, 10);
+//     const [result] = await connection.query(
+//       "INSERT INTO users (name, email, password, created_at) VALUES (?, ?, ?, NOW())",
+//       [name, email, hashedPassword]
+//     );
 
-      const [userResult] = await pool.query(
-        "INSERT INTO users (name, email, password, role, mobile, company_name) VALUES (?, ?, ?, ?, ?, ?)",
-        [name, email, hashedPassword, role || "job_seeker", mobile, company_name || null]
-      );
+//     const userId = result.insertId;
+//     const [userRows] = await connection.query(
+//       "SELECT id, name, email, created_at FROM users WHERE id = ?",
+//       [userId]
+//     );
+//     const user = userRows[0];
 
-      const userId = userResult.insertId;
+//     // Generate JWT token
+//     const token = jwt.sign(
+//       { id: user.id, email: user.email, role: "candidate" },
+//       process.env.JWT_SECRET || "your_jwt_secret",
+//       { expiresIn: "1d" }
+//     );
 
-      let employeeId = null;
-      if (role === "job_seeker" || !role) {
-        const [employeeResult] = await pool.query(
-          "INSERT INTO employees (full_name, email, phone, user_id) VALUES (?, ?, ?, ?)",
-          [name, email, mobile, userId]
-        );
-        employeeId = employeeResult.insertId;
-      }
-
-      const [newUserRows] = await pool.query(
-        "SELECT id, name, email, role, mobile, company_name FROM users WHERE id = ?",
-        [userId]
-      );
-
-      const token = jwt.sign(
-        { id: newUserRows[0].id, role: newUserRows[0].role },
-        process.env.JWT_SECRET || "your_jwt_secret",
-        { expiresIn: "1d" }
-      );
-
-      res.status(201).json({
-        message: "User registered successfully",
-        token,
-        user: newUserRows[0],
-        employeeId: employeeId || null,
-      });
-    } catch (err) {
-      console.error("Error in register:", err.message);
-      res.status(500).json({ error: "Server error", details: err.message });
-    }
-  },
+//     // Return response
+//     res.status(201).json({
+//       message: "Candidate registered successfully",
+//       user: {
+//         id: user.id,
+//         name: user.name,
+//         email: user.email,
+//         created_at: user.created_at,
+//       },
+//       token,
+//     });
+//   } catch (error) {
+//     console.error("Candidate register error:", error);
+//     res.status(500).json({ error: "Something went wrong", details: error.message });
+//   } finally {
+//     if (connection) connection.release();
+//   }
+// },
 
 async forgotPassword(req, res) {
   const { mobile, newPassword } = req.body;
@@ -128,43 +125,53 @@ async forgotPassword(req, res) {
   }
 },
 
-async login(req, res) {
-  try {
-    const { email, password } = req.body;
+// async candidateLogin(req, res) {
+//   let connection;
+//   try {
+//     const { email, password } = req.body;
+//     connection = await pool.getConnection();
 
-    const [employers] = await pool.query("SELECT * FROM employers WHERE email = ?", [email]);
+//     // Query the users table
+//     const [users] = await connection.query("SELECT id, name, email, password, created_at FROM users WHERE email = ?", [email]);
 
-    if (employers.length === 0)
-      return res.status(400).json({ error: "Invalid credentials" });
+//     if (users.length === 0) {
+//       return res.status(400).json({ error: "Invalid credentials" });
+//     }
 
-    const user = employers[0];
+//     const user = users[0];
 
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch)
-      return res.status(400).json({ error: "Invalid credentials" });
+//     // Verify password
+//     const isMatch = await bcrypt.compare(password, user.password);
+//     if (!isMatch) {
+//       return res.status(400).json({ error: "Invalid credentials" });
+//     }
 
-    const token = jwt.sign(
-      { id: user.id, role: user.role },
-      process.env.JWT_SECRET || "your_jwt_secret",
-      { expiresIn: "1d" }
-    );
+//     // Generate JWT token
+//     const token = jwt.sign(
+//       { id: user.id, email: user.email, role: "candidate" },
+//       process.env.JWT_SECRET || "your_jwt_secret",
+//       { expiresIn: "1d" }
+//     );
 
-    res.json({
-      token,
-      user: {
-        id: user.id,
-        full_name: user.full_name,
-        email: user.email,
-        role: user.role,
-        email: user.email,
-        company_name: user.company_name || null,
-      },
-    });
-  } catch (err) {
-    console.error("Error in login:", err.message);
-    res.status(500).json({ error: "Server error", details: err.message });
-  }
-},
+//     // Return response
+//     res.json({
+//       token,
+//       user: {
+//         id: user.id,
+//         full_name: user.name, // Map name to full_name for frontend compatibility
+//         email: user.email,
+//         role: "candidate", // Hardcode role since users table doesn't have it
+//         created_at: user.created_at,
+//       },
+//     });
+//   } catch (err) {
+//     console.error("Error in candidate login:", err.message);
+//     res.status(500).json({ error: "Server error", details: err.message });
+//   } finally {
+//     if (connection) connection.release();
+//   }
+// },
+
 
   async getUsers(req, res) {
     try {
