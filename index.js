@@ -11,9 +11,7 @@ import fs from "fs";
 // Routes
 import headerRoutes from "./routes/headerRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
-import jobRoutes from "./routes/jobRoutes.js";
 import applicationRoutes from "./routes/applicationRoutes.js";
-
 import companyRoutes from "./routes/companyRoutes.js";
 import dashboardRoutes from "./routes/dashboardroutes.js";
 import candidateRoutes from "./routes/candidateroute.js";
@@ -24,9 +22,13 @@ import footerRoute from "./routes/footerRoute.js";
 import profileRoutes from "./routes/profileRoutes.js";
 import resumeRoutes from "./routes/resumeRoutes.js";
 import empRoutes from "./routes/empRoutes.js";
-import subcategoryRoutes from "./routes/subcategoryRoutes.js";
-import employerRoutes from "./routes/employerRoutes.js"
 
+
+
+
+import employerRoutes from "./routes/recruiterRoutes.js"
+import jobDetailsRoutes from "./routes/jobDetailsRoutes.js"
+import industryRoutes from "./routes/industryRoutes.js"
 dotenv.config();
 
 // Configure __dirname for ES modules
@@ -94,8 +96,6 @@ app.get("/", (req, res) => res.send("Job Portal Backend running"));
 app.use("/api/header", headerRoutes);
 app.use("/api/users", userRoutes);
 
-app.use("/jobs", jobRoutes);
-app.use("/api/jobs", jobRoutes);
 
 app.use(
   "/api/applications",
@@ -110,8 +110,8 @@ app.use(
 
 
 app.use("/api/employer",employerRoutes)
-
-
+app.use("/api/jobs",jobDetailsRoutes)
+app.use("/api/industries", industryRoutes);
 
 
 
@@ -131,7 +131,7 @@ app.use("/api/footer", footerRoute);
 app.use("/api/profile",  profileRoutes);
 app.use("/api/resume", resumeRoutes);
 app.use("/api/employees", authenticate, empRoutes);
-app.use("/api/subcategories", authenticate, subcategoryRoutes);
+
 
 
 // Global error handler
