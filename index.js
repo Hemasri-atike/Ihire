@@ -25,10 +25,10 @@ import empRoutes from "./routes/empRoutes.js";
 
 
 
-
+import industryRoutes from "./routes/industryRoutes.js"
 import employerRoutes from "./routes/recruiterRoutes.js"
 import jobDetailsRoutes from "./routes/jobDetailsRoutes.js"
-import industryRoutes from "./routes/industryRoutes.js"
+import invitesRoutes from "./routes/invitesRoutes.js"
 dotenv.config();
 
 // Configure __dirname for ES modules
@@ -95,6 +95,7 @@ app.get("/", (req, res) => res.send("Job Portal Backend running"));
 // Routes
 app.use("/api/header", headerRoutes);
 app.use("/api/users", userRoutes);
+app.use('/api/invites',invitesRoutes);
 
 
 app.use(

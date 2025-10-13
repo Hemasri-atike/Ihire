@@ -1,7 +1,5 @@
-
 import jwt from 'jsonwebtoken';
 
-// Middleware to authenticate requests using JWT
 const authenticate = (req, res, next) => {
   try {
     // 1️⃣ Get Authorization header
@@ -48,7 +46,7 @@ const authenticate = (req, res, next) => {
     const decoded = jwt.verify(token, secret);
 
     // 4️⃣ Validate decoded payload
-    if (!decoded.id || !decoded.role) {
+    if (!decoded.userId || !decoded.role) { // Changed 'id' to 'userId'
       console.warn(`Authentication failed: Incomplete token payload`, {
         decoded,
         path: req.path,
@@ -56,18 +54,19 @@ const authenticate = (req, res, next) => {
       });
       return res.status(401).json({
         error: 'Invalid token',
-        details: 'Token payload is missing required fields (id or role)',
+        details: 'Token payload is missing required fields (userId or role)',
       });
     }
 
     // 5️⃣ Attach decoded payload to req.user
     req.user = {
-      id: decoded.id,
+      id: decoded.userId, // Map userId to id for consistency
       email: decoded.email || null,
-      role: decoded.role, // Expected roles: 'job_seeker', 'employer', 'admin'
+      role: decoded.role,
+      company_id: decoded.company_id || null, // Include company_id for createInvite
     };
 
-    console.log(`Authenticated user: id=${req.user.id}, role=${req.user.role}`, {
+    console.log(`Authenticated user: id=${req.user.id}, role=${req.user.role}, company_id=${req.user.company_id}`, {
       path: req.path,
       method: req.method,
     });
