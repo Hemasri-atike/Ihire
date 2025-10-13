@@ -35,6 +35,12 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+
+
+
+
+
+
 // Create upload directories
 const uploadDirs = [
   path.join(__dirname, "Uploads/resumes"),
@@ -124,7 +130,7 @@ app.use("/api/industries", industryRoutes);
 // app.use("/api", applicantRoutes);
 app.use("/api/companies",  companyRoutes);
 app.use("/api/dashboard", authenticate, dashboardRoutes);
-app.use("/api/candidates", authenticate, candidateRoutes);
+app.use("/api/candidates", candidateRoutes);
 app.use("/api/candidates/resume", authenticate, candidateResumeRoutes);
 app.use("/api/jobalerts", authenticate, jobAlertRoutes);
 app.use("/api/categories", categoryRoutes);

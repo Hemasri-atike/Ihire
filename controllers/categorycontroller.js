@@ -1,156 +1,57 @@
-import pool from '../config/db.js';
 
-// List of valid lucide-react icons for validation
-const validIcons = ['Code', 'Heart', 'Briefcase', 'PenTool', 'Book'];
 
-// GET all categories
-export const getCategories = async (req, res) => {
+import pool from "../config/db.js";
+
+// Get all categories
+export const getAllCategories = async (req, res) => {
   try {
-    const [categories] = await pool.query(`
-      SELECT 
-        c.id,
-        c.name,
-        c.icon,
-        c.bg_color AS bgColor,
-        c.icon_color AS iconColor,
-        COUNT(j.id) AS openPositions
-      FROM categories c
-      LEFT JOIN jobs j ON c.id = j.category_id AND j.deleted_at IS NULL
-      GROUP BY c.id, c.name, c.icon, c.bg_color, c.icon_color
+    const [rows] = await pool.query(`
+      SELECT id, industry_id, name
+      FROM categories
+      ORDER BY name ASC
     `);
 
-    const normalizedCategories = categories.map((cat) => ({
-      id: cat.id,
-      name: cat.name || 'Unnamed Category',
-      icon: validIcons.includes(cat.icon) ? cat.icon : 'Briefcase',
-      bgColor: cat.bgColor || 'bg-blue-100',
-      iconColor: cat.iconColor || 'text-blue-700',
-      openPositions: Number(cat.openPositions) || 0,
-    }));
-
-    res.json(normalizedCategories);
+    res.status(200).json(rows);
   } catch (error) {
-    console.error('Error fetching categories:', error);
-    res.status(500).json({ error: 'Failed to fetch categories', details: error.message });
+    console.error("Error fetching categories:", error);
+    res.status(500).json({
+      error: "Failed to fetch categories",
+      details: error.message,
+    });
   }
 };
 
-// GET single category by ID
-export const getCategoryById = async (req, res) => {
-  const { id } = req.params;
 
+export const getJobsByCategorySlug = async (req, res) => {
   try {
-    const [categories] = await pool.query(`
-      SELECT 
-        c.id,
-        c.name,
-        c.icon,
-        c.bg_color AS bgColor,
-        c.icon_color AS iconColor,
-        COUNT(j.id) AS openPositions
-      FROM categories c
-      LEFT JOIN jobs j ON c.id = j.category_id AND j.deleted_at IS NULL
-      WHERE c.id = ?
-      GROUP BY c.id, c.name, c.icon, c.bg_color, c.icon_color
-    `, [id]);
+    const { categorySlug } = req.params;
+    const city = req.query.city || "";
 
-    if (!categories.length) {
-      return res.status(404).json({ error: 'Category not found' });
-    }
+    // Convert slug back to category name
+    const categoryName = categorySlug.replace(/-/g, " ");
 
-    const cat = categories[0];
-    const category = {
-      id: cat.id,
-      name: cat.name || 'Unnamed Category',
-      icon: validIcons.includes(cat.icon) ? cat.icon : 'Briefcase',
-      bgColor: cat.bgColor || 'bg-blue-100',
-      iconColor: cat.iconColor || 'text-blue-700',
-      openPositions: Number(cat.openPositions) || 0,
-    };
-
-    res.json(category);
-  } catch (error) {
-    console.error('Error fetching category:', error);
-    res.status(500).json({ error: 'Failed to fetch category', details: error.message });
-  }
-};
-
-// CREATE a new category
-export const createCategory = async (req, res) => {
-  const { name, icon, bgColor, iconColor } = req.body;
-
-  if (!name) {
-    return res.status(400).json({ error: 'Name is required' });
-  }
-  if (icon && !validIcons.includes(icon)) {
-    return res.status(400).json({ error: `Invalid icon. Must be one of: ${validIcons.join(', ')}` });
-  }
-
-  try {
-    const [result] = await pool.query(
-      `INSERT INTO categories (name, icon, bg_color, icon_color) VALUES (?, ?, ?, ?)`,
-      [name, icon || 'Briefcase', bgColor || 'bg-blue-100', iconColor || 'text-blue-700']
+    // Build query
+    const [jobs] = await pool.query(
+      `SELECT 
+          j.id, 
+          j.title, 
+          j.location, 
+          j.salary_min, 
+          j.salary_max, 
+          j.employment_type, 
+          j.description,
+          c.name AS category
+       FROM jobs j
+       JOIN categories c ON j.category_id = c.id
+       WHERE LOWER(c.name) = LOWER(?)
+       ${city ? "AND LOWER(j.location) LIKE LOWER(?)" : ""}`,
+      city ? [categoryName, `%${city}%`] : [categoryName]
     );
 
-    const newCategory = {
-      id: result.insertId,
-      name,
-      icon: icon || 'Briefcase',
-      bgColor: bgColor || 'bg-blue-100',
-      iconColor: iconColor || 'text-blue-700',
-      openPositions: 0,
-    };
-
-    res.status(201).json(newCategory);
-  } catch (error) {
-    console.error('Error creating category:', error);
-    res.status(500).json({ error: 'Failed to create category', details: error.message });
+    res.status(200).json(jobs);
+  } catch (err) {
+    console.error("Error fetching jobs:", err);
+    res.status(500).json({ error: "Failed to fetch jobs", details: err.message });
   }
 };
 
-// UPDATE a category
-export const updateCategory = async (req, res) => {
-  const { id } = req.params;
-  const { name, icon, bgColor, iconColor } = req.body;
-
-  if (!name) {
-    return res.status(400).json({ error: 'Name is required' });
-  }
-  if (icon && !validIcons.includes(icon)) {
-    return res.status(400).json({ error: `Invalid icon. Must be one of: ${validIcons.join(', ')}` });
-  }
-
-  try {
-    const [result] = await pool.query(
-      `UPDATE categories SET name = ?, icon = ?, bg_color = ?, icon_color = ? WHERE id = ?`,
-      [name, icon || 'Briefcase', bgColor || 'bg-blue-100', iconColor || 'text-blue-700', id]
-    );
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ error: 'Category not found' });
-    }
-
-    res.json({ message: 'Category updated successfully' });
-  } catch (error) {
-    console.error('Error updating category:', error);
-    res.status(500).json({ error: 'Failed to update category', details: error.message });
-  }
-};
-
-// DELETE a category
-export const deleteCategory = async (req, res) => {
-  const { id } = req.params;
-
-  try {
-    const [result] = await pool.query(`DELETE FROM categories WHERE id = ?`, [id]);
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ error: 'Category not found' });
-    }
-
-    res.json({ message: 'Category deleted successfully' });
-  } catch (error) {
-    console.error('Error deleting category:', error);
-    res.status(500).json({ error: 'Failed to delete category', details: error.message });
-  }
-};
