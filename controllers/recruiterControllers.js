@@ -364,13 +364,14 @@ export const getRecruiterCompany = async (req, res) => {
 export const RecruiterLogin = async (req, res) => {
   try {
     const { email, password } = req.body;
+    console.log(email, password);
 
     if (!email || !password) {
       return res.status(400).json({ error: 'Email and password are required' });
     }
 
     const [rows] = await pool.query(
-      'SELECT id, name, full_name, email, password_hash, role, company_id FROM recruiters WHERE email = ? LIMIT 1',
+      'SELECT id, name, email, password, role, company_id FROM recruiters WHERE email = ? LIMIT 1',
       [email]
     );
 
@@ -380,7 +381,7 @@ export const RecruiterLogin = async (req, res) => {
 
     const user = rows[0];
 
-    const isMatch = await bcrypt.compare(password, user.password_hash || '');
+    const isMatch = await bcrypt.compare(password, user.password || '');
     if (!isMatch) {
       return res.status(400).json({ error: 'Invalid credentials' });
     }
