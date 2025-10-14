@@ -215,12 +215,30 @@ export const recruiterCompanyRegister = [
           [companyId, parsedUserId]
         );
       }
+
       const [companyRows] = await connection.query(
         "SELECT id, name, description, website, logo_url, banner_url, location, pincode, state, industry, size, established_year FROM companies WHERE id = ? LIMIT 1",
         [companyId]
       );
 
-      const company = companyRows && companyRows.length ? companyRows[0] : null;
+      // build company object (will become full-URL adjusted below)
+      let company = companyRows && companyRows.length ? companyRows[0] : null;
+
+      // --- INSERTED: convert relative /uploads/... paths to full URLs ---
+      // Build base URL from request (handles proxies)
+      const protocol = req.headers["x-forwarded-proto"] || req.protocol;
+      const host = req.get("host"); // e.g. localhost:5000 or your-domain.com
+      const baseUrl = `${protocol}://${host}`;
+
+      if (company) {
+        if (company.logo_url && !company.logo_url.startsWith("http")) {
+          company.logo_url = `${baseUrl}${company.logo_url}`;
+        }
+        if (company.banner_url && !company.banner_url.startsWith("http")) {
+          company.banner_url = `${baseUrl}${company.banner_url}`;
+        }
+      }
+      // -------------------------------------------------------------------
 
       res.status(200).json({
         message: "Company details saved successfully",
@@ -237,6 +255,7 @@ export const recruiterCompanyRegister = [
     }
   },
 ];
+
 
 export const getRecruiter = async (req, res) => {
   let connection;
@@ -263,7 +282,7 @@ export const getRecruiter = async (req, res) => {
     if (connection) connection.release();
   }
 };
-
+  
 export const updateRecruiter = async (req, res) => {
   let connection;
   try {

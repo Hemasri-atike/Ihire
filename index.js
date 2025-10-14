@@ -55,33 +55,58 @@ uploadDirs.forEach((dir) => {
   }
 });
 
-// Configure multer for file uploads
+// Configure multer for file uploads (supports resumes (.pdf/.doc/.docx) and images for logos/banners)
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
+    // route the files to specific subfolders
     if (file.fieldname === "resume") {
       cb(null, path.join(__dirname, "Uploads/resumes"));
     } else if (file.fieldname === "coverLetter") {
       cb(null, path.join(__dirname, "Uploads/coverLetters"));
+    } else if (file.fieldname === "logo") {
+      cb(null, path.join(__dirname, "Uploads/logos"));
+    } else if (file.fieldname === "banner") {
+      cb(null, path.join(__dirname, "Uploads/banners"));
+    } else {
+      // fallback
+      cb(null, path.join(__dirname, "Uploads"));
     }
   },
   filename: (req, file, cb) => {
-    cb(null, `${Date.now()}-${file.originalname}`);
+    // use timestamp + originalname to avoid collisions
+    const safeName = file.originalname.replace(/\s+/g, "-");
+    cb(null, `${Date.now()}-${safeName}`);
   },
 });
+
 const upload = multer({
   storage,
-  limits: { fileSize: 10 * 1024 * 1024 }, 
+  limits: { fileSize: 20 * 1024 * 1024 }, // 20MB limit (adjust if needed)
   fileFilter: (req, file, cb) => {
-    const filetypes = /pdf|doc|docx/;
-    const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = filetypes.test(file.mimetype);
-    if (extname && mimetype) {
-      cb(null, true);
-    } else {
-      cb(new Error("Only PDF, DOC, and DOCX files are allowed for resumes and cover letters"), false);
+    // allow different types depending on the fieldname
+    if (file.fieldname === "resume" || file.fieldname === "coverLetter") {
+      const allowed = /pdf|doc|docx/;
+      const ext = path.extname(file.originalname).toLowerCase();
+      if (allowed.test(ext) && allowed.test(file.mimetype)) {
+        return cb(null, true);
+      }
+      return cb(new Error("Only PDF, DOC, and DOCX files are allowed for resumes/cover letters"), false);
     }
+
+    if (file.fieldname === "logo" || file.fieldname === "banner") {
+      const allowedImg = /jpeg|jpg|png|gif/;
+      const ext = path.extname(file.originalname).toLowerCase();
+      if (allowedImg.test(ext) || allowedImg.test(file.mimetype)) {
+        return cb(null, true);
+      }
+      return cb(new Error("Only image files (jpeg, jpg, png, gif) are allowed for logo/banner"), false);
+    }
+
+    // default allow
+    cb(null, true);
   },
 });
+
 
 const app = express();
 
