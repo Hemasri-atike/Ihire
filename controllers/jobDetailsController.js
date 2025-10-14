@@ -54,27 +54,70 @@ export const createJob =async (req, res) => {
 
 export const getAllJobs = async (req, res) => {
   try {
-    const [rows] = await pool.query(`
+    const { companyId, statusFilter = 'All', searchQuery = '', page = 1, jobsPerPage = 10, category, sortBy, userId, postedByUser = false } = req.body;
+    if (!companyId) {
+      return res.status(400).json({ message: "company_id is required" });
+    }
+
+    let query = `
       SELECT 
         j.id,
         j.title,
         c.name AS company,
-        COALESCE(c.logo_url, '/uploads/logos/default-logo.png') AS logo, -- Fetch logo_url from companies
+        COALESCE(c.logo_url, '/uploads/logos/default-logo.png') AS logo,
         j.location,
         CONCAT('$', FORMAT(j.salary_min, 0), '-$', FORMAT(j.salary_max, 0)) AS salary,
         j.employment_type AS type,
-        JSON_UNQUOTE(j.description) AS description -- Parse JSON description
+        JSON_UNQUOTE(j.description) AS description
       FROM jobs j
       LEFT JOIN companies c ON j.company_id = c.id
-      ORDER BY j.created_at DESC
-    `);
+      WHERE j.company_id = ?
+    `;
+
+    const params = [companyId];
+
+    // Apply filters
+    if (statusFilter !== 'All') {
+      query += ' AND j.employment_type = ?';
+      params.push(statusFilter);
+    }
+    if (searchQuery) {
+      query += ' AND (j.title LIKE ? OR j.location LIKE ?)';
+      params.push(`%${searchQuery}%`, `%${searchQuery}%`);
+    }
+    if (category) {
+      query += ' AND j.category_id = ?';
+      params.push(category);
+    }
+    if (userId) {
+      query += ' AND j.created_by = ?';
+      params.push(userId);
+    }
+    if (postedByUser) {
+      query += ' AND j.created_by = ?';
+      params.push(userId); // Reuse userId for postedByUser filter
+    }
+
+    // Pagination and sorting
+    query += ' ORDER BY j.created_at DESC';
+    if (sortBy) {
+      query += ' ' + sortBy;
+    }
+    query += ' LIMIT ? OFFSET ?';
+    params.push(jobsPerPage, (page - 1) * jobsPerPage);
+
+    const [rows] = await pool.query(query, params);
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: "No jobs found for this company" });
+    }
+
     res.status(200).json(rows);
   } catch (error) {
     console.error("Error fetching jobs:", error);
     res.status(500).json({ message: "Error fetching jobs", error: error.message });
   }
 };
-
 export const getJobById = async (req, res) => {
   try {
     const { id } = req.params;

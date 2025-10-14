@@ -220,14 +220,11 @@ export const recruiterCompanyRegister = [
         "SELECT id, name, description, website, logo_url, banner_url, location, pincode, state, industry, size, established_year FROM companies WHERE id = ? LIMIT 1",
         [companyId]
       );
-
-      // build company object (will become full-URL adjusted below)
       let company = companyRows && companyRows.length ? companyRows[0] : null;
 
-      // --- INSERTED: convert relative /uploads/... paths to full URLs ---
-      // Build base URL from request (handles proxies)
+     
       const protocol = req.headers["x-forwarded-proto"] || req.protocol;
-      const host = req.get("host"); // e.g. localhost:5000 or your-domain.com
+      const host = req.get("host");
       const baseUrl = `${protocol}://${host}`;
 
       if (company) {
@@ -238,12 +235,17 @@ export const recruiterCompanyRegister = [
           company.banner_url = `${baseUrl}${company.banner_url}`;
         }
       }
-      // -------------------------------------------------------------------
+     const token = jwt.sign(
+        { userId: parsedUserId, role: user[0].role || "recruiter", company_id: companyId },
+        process.env.JWT_SECRET,
+        { expiresIn: "1d" }
+      );
 
       res.status(200).json({
         message: "Company details saved successfully",
         companyId,
         company,
+        token, 
       });
     } catch (error) {
       console.error("Company register error:", error);

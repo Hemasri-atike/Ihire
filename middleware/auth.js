@@ -44,7 +44,7 @@ const authenticate = (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, secret);
-
+console.log("decoded",decoded )
     // 4️⃣ Validate decoded payload
     if (!decoded.userId || !decoded.role) { // Changed 'id' to 'userId'
       console.warn(`Authentication failed: Incomplete token payload`, {

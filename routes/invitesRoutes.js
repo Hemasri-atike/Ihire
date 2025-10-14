@@ -1,6 +1,6 @@
 import express from 'express';
 import authenticate from '../middleware/auth.js';
-import { createInvite, validateInvite, acceptInvite } from '../controllers/invitesController.js';
+import { createInvite, validateInvite, acceptInvite, registerWithInvite, getCompanyInvites, deleteCompanyInvite } from '../controllers/invitesController.js';
 
 const router = express.Router();
 
@@ -42,4 +42,7 @@ router.post('/accept', authenticate, async (req, res, next) => {
   }
 });
 
+router.post("/intiveRegister", registerWithInvite)
+router.get('/RecruiterInvites', authenticate, getCompanyInvites);
+router.delete('/deleteInvites/:inviteId', authenticate, deleteCompanyInvite);
 export default router;
