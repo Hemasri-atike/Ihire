@@ -23,23 +23,17 @@ import profileRoutes from "./routes/profileRoutes.js";
 import resumeRoutes from "./routes/resumeRoutes.js";
 import empRoutes from "./routes/empRoutes.js";
 
-
-
 import industryRoutes from "./routes/industryRoutes.js"
 import employerRoutes from "./routes/recruiterRoutes.js"
 import jobDetailsRoutes from "./routes/jobDetailsRoutes.js"
 import invitesRoutes from "./routes/invitesRoutes.js"
+import qualificationRoutes from "./routes/qualificationRoutes.js"
+
 dotenv.config();
 
 // Configure __dirname for ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
-
-
-
-
-
 
 // Create upload directories
 const uploadDirs = [
@@ -107,7 +101,6 @@ const upload = multer({
   },
 });
 
-
 const app = express();
 
 // Middleware
@@ -128,7 +121,6 @@ app.use("/api/header", headerRoutes);
 app.use("/api/users", userRoutes);
 app.use('/api/invites',invitesRoutes);
 
-
 app.use(
   "/api/applications",
   authenticate,
@@ -139,18 +131,11 @@ app.use(
   applicationRoutes
 );
 
-
-
 app.use("/api/employer",employerRoutes)
 app.use("/api/jobs",jobDetailsRoutes)
 app.use("/api/industries", industryRoutes);
 
-
-
-
-
-
-
+app.use("/api/qualifications",  qualificationRoutes); 
 
 // app.use("/api", applicantRoutes);
 app.use("/api/companies",  companyRoutes);
@@ -163,8 +148,6 @@ app.use("/api/footer", footerRoute);
 app.use("/api/profile",  profileRoutes);
 app.use("/api/resume", resumeRoutes);
 app.use("/api/employees", authenticate, empRoutes);
-
-
 
 // Global error handler
 app.use((err, req, res, next) => {
