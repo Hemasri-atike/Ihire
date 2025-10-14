@@ -298,7 +298,6 @@ const getJobsByCategory = async (req, res) => {
 export const getSkills = async (req, res) => {
   try {
     const [skills] = await pool.query('SELECT skill FROM job_skills ORDER BY skill');
-    console.log(`GET /api/jobs/skills: found ${skills.length} skills`);
     res.json(skills.map(s => s.skill));
   } catch (err) {
     console.error('getSkills Error:', { message: err.message, stack: err.stack });
@@ -321,9 +320,6 @@ export const addSkill = async (req, res) => {
     res.status(500).json({ error: 'Failed to add skill', details: err.message });
   }
 };
-
-
-
 
 // export const createJob = async (req, res) => {
 //   // ✅ Extract job data from body
