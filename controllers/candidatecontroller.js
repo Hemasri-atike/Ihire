@@ -107,6 +107,69 @@ export const candidateLogin = async (req, res) => {
   }
 };
 
+export const getCandidateProfile = async (req, res) => {
+  let connection;
+  try {
+    const userId = req.user.id;
+    connection = await pool.getConnection();
+
+    // Fetch user details from users table
+    const [user] = await connection.query(
+      "SELECT id, name, email, created_at FROM users WHERE id = ?",
+      [userId]
+    );
+    if (user.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Fetch profile details from candidate_profile and related tables
+    const [profile] = await connection.query(
+      "SELECT phone, resume FROM candidate_profile WHERE user_id = ?",
+      [userId]
+    );
+    const [skills] = await connection.query(
+      "SELECT skill_name FROM skills WHERE user_id = ?",
+      [userId]
+    );
+    const [experience] = await connection.query(
+      "SELECT company_name, job_title, duration, responsibilities FROM experience WHERE user_id = ?",
+      [userId]
+    );
+    const [education] = await connection.query(
+      "SELECT degree, institution, year, city FROM education WHERE user_id = ?",
+      [userId]
+    );
+
+    res.json({
+      user: {
+        id: user[0].id,
+        name: user[0].name,
+        email: user[0].email,
+        created_at: user[0].created_at,
+      },
+      profile: profile[0] || { phone: "", resume: "" },
+      skills: skills.map((s) => s.skill_name),
+      experience: experience.map((e) => ({
+        companyName: e.company_name,
+        jobTitle: e.job_title,
+        duration: e.duration,
+        responsibilities: e.responsibilities,
+      })),
+      education: education.map((e) => ({
+        degree: e.degree,
+        institution: e.institution,
+        year: e.year,
+        city: e.city,
+      })),
+    });
+  } catch (error) {
+    console.error("getProfile error:", error.message);
+    res.status(500).json({ error: "Failed to fetch profile", details: error.message });
+  } finally {
+    if (connection) connection.release();
+  }
+};
+
 export const getAllCandidates = async (req, res) => {
   try {
     const [results] = await pool.query("SELECT * FROM candidates");

@@ -28,6 +28,7 @@ import employerRoutes from "./routes/recruiterRoutes.js"
 import jobDetailsRoutes from "./routes/jobDetailsRoutes.js"
 import invitesRoutes from "./routes/invitesRoutes.js"
 import qualificationRoutes from "./routes/qualificationRoutes.js"
+import jobcontroller from "./controllers/jobcontroller.js";
 
 dotenv.config();
 
@@ -131,7 +132,7 @@ app.use(
   applicationRoutes
 );
 
-app.use("/api/employer",employerRoutes)
+app.use("/api/recruiter",employerRoutes)
 app.use("/api/jobs",jobDetailsRoutes)
 app.use("/api/industries", industryRoutes);
 
@@ -148,7 +149,7 @@ app.use("/api/footer", footerRoute);
 app.use("/api/profile",  profileRoutes);
 app.use("/api/resume", resumeRoutes);
 app.use("/api/employees", authenticate, empRoutes);
-
+// app.use("/api/dashboard/jobs",authenticate,jobcontroller)
 // Global error handler
 app.use((err, req, res, next) => {
   console.error(`Error: ${req.method} ${req.url}`, err.stack);

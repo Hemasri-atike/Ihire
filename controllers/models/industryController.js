@@ -15,6 +15,7 @@ export const getIndustries = async (req, res) => {
 export const getCategoriesByIndustry = async (req, res) => {
   try {
     const industryId = req.params.industryId;
+    console.log("industryId:::::::::: ",industryId )
     const [rows] = await pool.query(
       "SELECT * FROM categories WHERE industry_id = ? ORDER BY name",
       [industryId]
@@ -32,7 +33,7 @@ export const getSubcategoriesByCategory = async (req, res) => {
     const categoryId = req.params.categoryId;
     console.log("categoryId:::::::::: ",categoryId )
     const [rows] = await pool.query(
-      "SELECT * FROM subcategories WHERE category_id = ? ORDER BY name",
+      "SELECT * FROM subcategories WHERE id = ? ORDER BY name",
       [categoryId]
     );
     res.json(rows);
