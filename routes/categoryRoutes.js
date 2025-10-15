@@ -1,5 +1,5 @@
 import express from "express";
-import { getAllCategories ,getJobsByCategorySlug} from "../controllers/categoryController.js"; // make sure casing matches
+import { getAllCategories ,getJobsByCategorySlug} from "../controllers/categorycontroller.js"; // make sure casing matches
 
 const router = express.Router();
 

@@ -79,24 +79,27 @@ export const getJobById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const [rows] = await pool.query(`
-      SELECT 
-        j.id,
-        j.title,
-        c.name AS company,
-        COALESCE(c.logo_url, '/uploads/logos/default-logo.png') AS logo,
-        j.location,
-        CONCAT('$', FORMAT(j.salary_min, 0), '-$', FORMAT(j.salary_max, 0)) AS salary,
-        j.employment_type AS type,
-        JSON_UNQUOTE(j.description) AS description,
-        j.responsibilities,
-        j.qualifications,
-        COALESCE(i.name, 'General') AS category
-      FROM jobs j
-      LEFT JOIN companies c ON j.company_id = c.id
-      LEFT JOIN industries i ON j.industry_id = i.id
-      WHERE j.id = ?
-    `, [id]);
+   const [rows] = await pool.query(`
+  SELECT 
+    j.id,
+    j.title,
+    c.name AS company,
+    COALESCE(c.logo_url, '/uploads/logos/default-logo.png') AS logo,
+    j.location,
+    CONCAT('$', FORMAT(j.salary_min, 0), '-$', FORMAT(j.salary_max, 0)) AS salary,
+    j.employment_type AS type,
+    JSON_UNQUOTE(j.description) AS description,
+    j.responsibilities,
+    j.education,
+    j.qualification_category,
+    j.qualification_subcategory,
+    COALESCE(i.name, 'General') AS category
+  FROM jobs j
+  LEFT JOIN companies c ON j.company_id = c.id
+  LEFT JOIN industries i ON j.industry_id = i.id
+  WHERE j.id = ?
+`, [id]);
+
 
     if (rows.length === 0) {
       return res.status(404).json({ message: "Job not found" });

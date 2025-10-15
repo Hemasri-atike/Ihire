@@ -24,6 +24,7 @@ export const getAllCategories = async (req, res) => {
 
 export const getJobsByCategorySlug = async (req, res) => {
   try {
+    // console.log("backend")
     const { categorySlug } = req.params;
     const city = req.query.city || "";
 
