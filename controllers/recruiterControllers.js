@@ -382,7 +382,7 @@ export const getRecruiterCompany = async (req, res) => {
   }
 };
 
-export const RecruiterLogin = async (req, res) => {
+export const recruiterLogin = async (req, res) => {
   try {
     const { email, password } = req.body;
     console.log(email, password);
@@ -444,3 +444,27 @@ export const RecruiterLogin = async (req, res) => {
     console.error('Error in RecruiterLogin:', err);
     return res.status(500).json({ error: 'Server error', details: err.message });
   }}
+
+
+  export const recruiterCompanies=async(req,res)=>{
+     const { userId } = req.params;
+
+  try {
+    const [rows] = await pool.query(
+      `SELECT c.id, c.name 
+       FROM recruiters r
+       JOIN companies c ON r.company_id = c.id
+       WHERE r.company_id = ?`,
+      [userId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'No companies found for this recruiter' });
+    }
+
+    res.status(200).json(rows);
+  } catch (err) {
+    console.error('Error fetching companies:', err);
+    res.status(500).json({ message: 'Error fetching companies' });
+  }
+  }

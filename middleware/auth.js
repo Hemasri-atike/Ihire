@@ -1,5 +1,31 @@
 import jwt from 'jsonwebtoken';
 
+
+export function getTokenPayload(authorizationHeader) {
+  try {
+    if (!authorizationHeader) return null;
+    // support both "Bearer <token>" and raw token
+    const token = (authorizationHeader.split && authorizationHeader.split(' ')[1]) || authorizationHeader;
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+      console.error('getTokenPayload: JWT_SECRET is not configured');
+      return null;
+    }
+    const decoded = jwt.verify(token, secret);
+    // normalize fields similar to middleware: map userId -> id
+    if (!decoded) return null;
+    return {
+      id: decoded.userId ?? decoded.id ?? null,
+      email: decoded.email ?? null,
+      role: decoded.role ?? null,
+      company_id: decoded.company_id ?? null,
+      raw: decoded, // keep raw for debugging if needed
+    };
+  } catch (err) {
+  
+    return null;
+  }
+}
 const authenticate = (req, res, next) => {
   try {
     // 1️⃣ Get Authorization header
