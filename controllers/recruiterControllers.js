@@ -454,7 +454,7 @@ export const recruiterLogin = async (req, res) => {
       `SELECT c.id, c.name 
        FROM recruiters r
        JOIN companies c ON r.company_id = c.id
-       WHERE r.company_id = ?`,
+       WHERE r.created_id = ?`,
       [userId]
     );
 

@@ -44,7 +44,7 @@ console.log("userRole",userRole)
     );
     console.log('Invite created:', { id: result.insertId, email, token, company_id, role });
 
-    const inviteLink = `http://localhost:3000/accept-invite?token=${encodeURIComponent(token)}`;
+    const inviteLink = `http://localhost:3000/api/invites/accept?token=${encodeURIComponent(token)}`;
     const emailSent = await sendInviteEmail(email, inviteLink, company[0].name, role);
     if (!emailSent) {
       console.log('Failed to send invite email to:', email);

@@ -11,7 +11,6 @@ export const getIndustries = async (req, res) => {
   }
 };
 
-
 export const getCategoriesByIndustry = async (req, res) => {
   try {
     const industryId = req.params.industryId;

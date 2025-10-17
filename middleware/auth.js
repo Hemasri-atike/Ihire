@@ -4,7 +4,6 @@ import jwt from 'jsonwebtoken';
 export function getTokenPayload(authorizationHeader) {
   try {
     if (!authorizationHeader) return null;
-    // support both "Bearer <token>" and raw token
     const token = (authorizationHeader.split && authorizationHeader.split(' ')[1]) || authorizationHeader;
     const secret = process.env.JWT_SECRET;
     if (!secret) {
@@ -12,14 +11,13 @@ export function getTokenPayload(authorizationHeader) {
       return null;
     }
     const decoded = jwt.verify(token, secret);
-    // normalize fields similar to middleware: map userId -> id
     if (!decoded) return null;
     return {
       id: decoded.userId ?? decoded.id ?? null,
       email: decoded.email ?? null,
       role: decoded.role ?? null,
       company_id: decoded.company_id ?? null,
-      raw: decoded, // keep raw for debugging if needed
+      raw: decoded,
     };
   } catch (err) {
   
@@ -28,7 +26,6 @@ export function getTokenPayload(authorizationHeader) {
 }
 const authenticate = (req, res, next) => {
   try {
-    // 1️⃣ Get Authorization header
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       console.warn(`Authentication failed: Missing or invalid Authorization header`, {
@@ -42,7 +39,6 @@ const authenticate = (req, res, next) => {
       });
     }
 
-    // 2️⃣ Extract token
     const token = authHeader.split(' ')[1];
     if (!token) {
       console.warn(`Authentication failed: No token provided`, {
@@ -56,7 +52,6 @@ const authenticate = (req, res, next) => {
       });
     }
 
-    // 3️⃣ Verify token
     const secret = process.env.JWT_SECRET;
     if (!secret) {
       console.error('Authentication failed: JWT_SECRET is not configured', {
@@ -70,9 +65,7 @@ const authenticate = (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, secret);
-console.log("decoded",decoded )
-    // 4️⃣ Validate decoded payload
-    if (!decoded.userId || !decoded.role) { // Changed 'id' to 'userId'
+    if (!decoded.userId || !decoded.role) { 
       console.warn(`Authentication failed: Incomplete token payload`, {
         decoded,
         path: req.path,
@@ -84,12 +77,12 @@ console.log("decoded",decoded )
       });
     }
 
-    // 5️⃣ Attach decoded payload to req.user
+   
     req.user = {
-      id: decoded.userId, // Map userId to id for consistency
+      id: decoded.userId,
       email: decoded.email || null,
       role: decoded.role,
-      company_id: decoded.company_id || null, // Include company_id for createInvite
+      company_id: decoded.company_id || null, 
     };
 
     console.log(`Authenticated user: id=${req.user.id}, role=${req.user.role}, company_id=${req.user.company_id}`, {
@@ -97,7 +90,7 @@ console.log("decoded",decoded )
       method: req.method,
     });
 
-    // 6️⃣ Continue to next middleware/controller
+
     next();
   } catch (err) {
     console.error('Authentication error:', {
